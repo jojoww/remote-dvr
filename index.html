@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Data Viewer</title>
+        <meta charset="utf-8" />
+
+        <style>
+            body {
+                background-color: #222222;
+                margin: 0;
+                padding: 0;
+                position: relative;
+                font-family: Verdana, Geneva, Tahoma, sans-serif;
+            }
+
+            .centerBox {
+                background-color: #333333;
+                width: 500px;
+                font-size: 17px;
+                color: #cccccc;
+                border: 1px solid #999999;
+                padding: 20px;
+                margin-top: 10%;
+                margin-left: auto;
+                margin-right: auto;
+                position: relative;
+            }
+
+            .topSpace {
+                margin-top: 10px;
+            }
+
+            .btn-primary {
+                font-size: 16px;
+                background-color: #555;
+                color: white;
+                padding:0px;
+                margin: 2px;
+                cursor: pointer;
+                border: 5px solid #555;
+                border-radius: 3px;
+                line-height: 32px;
+            }
+
+            
+            .btn-primary:hover {
+                opacity: 0.85;
+            }
+            input {
+                color: black;
+            }
+
+            
+            .row {
+                display: flex;
+                position: relative;
+                width: 100%;
+                margin: 5px 0px;
+                padding: 0;
+            }
+
+            .col-6 {
+                width: 50%;
+                position: relative;
+                display:inline-block;
+                margin: 0;
+                padding: 2px;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="centerBox">
+            Please enter the URLs of config/data locations and select the data type. Float32 has higher precision but requires four times the memory. 
+            Furthermore, you can set a scale for the sampling rate. Value "2" will sample twice per pixel, which increases image quality,
+            and value "0.5" will only sample once every two pixels.<br /><br />
+            <div class="row topSpace">
+                <div class="col-6">
+                    Config file URL
+                </div>
+                <div class="col-6">
+                    <input type="text" value="http://localhost:80/config.json" id="configUrlField" />
+                </div>
+            </div>
+            <div class="row topSpace">
+                <div class="col-6">
+                    Data server root URL 
+                </div>
+                <div class="col-6">
+                    <input type="text" value="http://localhost:80/data" id="dataUrlField" />
+                </div>
+            </div>
+            <div class="row topSpace">
+                <div class="col-6">
+                    Sampling rate
+                </div>
+                <div class="col-6">
+                    <input type="number" value="1" min="0.1" max="2" step="0.1" id="samplingRateField" />
+                </div>
+            </div>
+            <div class="row topSpace">
+                <div class="col-6">
+                    Type
+                </div>
+                <div class="col-6">
+                    <div class="form-group">
+                        <div class="custom-control custom-radio">
+                            <input type="radio" id="customRadio1" name="customRadio" class="custom-control-input" checked="" />
+                            <label class="custom-control-label" for="customRadio1">Byte (UInt8)</label>
+                        </div>
+                        <div class="custom-control custom-radio">
+                            <input type="radio" id="customRadio2" name="customRadio" class="custom-control-input" />
+                            <label class="custom-control-label" for="customRadio2">Float32</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row topSpace">
+                <div class="col-6">
+                    &nbsp;
+                </div>
+                <div class="col-6">
+                    <button class="btn btn-primary" onclick="javascript:go()">Start</button>
+                </div>
+            </div>
+        </div>
+        <script>
+            /**
+             * Takes all user inputs and appends them to the URL
+             */
+            function go() {
+                var configUrl = document.getElementById('configUrlField').value;
+                var dataUrl = document.getElementById('dataUrlField').value;
+                var useByte = document.getElementById('customRadio1').checked;
+                var samplingRate = document.getElementById('samplingRateField').value;
+                location.href = 'viewer.html?configUrl=' + encodeURI(configUrl)
+                                         + '&useByte=' + (useByte ? '1' : '0') 
+                                         + '&dataUrl=' + encodeURI(dataUrl) 
+                                         + "&samplingRate=" + encodeURI(samplingRate);
+            }
+        </script>
+    </body>
+</html>

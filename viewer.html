@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Data Viewer</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+        <link type="text/css" rel="stylesheet" href="./includes/main.css" />
+
+        <!-- <link rel="stylesheet" href="includes/bootstrap/css/bootstrap.min.css" /> -->
+        <!-- <script src="includes/bootstrap/js/bootstrap.min.js"></script> -->
+        <script src="includes/wavelengthToHex.js"></script>
+        <script src="includes/jszip.min.js"></script>
+        <script src="includes/FileSaver.min.js"></script>
+
+        <style></style>
+    </head>
+
+    <body>
+        <div class="canvasArea">
+            <div id="mainCanvas"></div>
+        </div>
+
+        <div id="navigationArea">
+            <div class="navigationAreaContent">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-2">
+                            Screenshots:
+                        </div>
+                        <div class="col-4">
+                            <button class="btn-sm btn-primary  grayscale" onclick="javascript:takeScreenshot()">Click!</button>
+                            <button class="btn-sm btn-primary none  grayscale" id="screenShotAlbumOpener" onclick="javascript:openScreenshotAlbum()">Album</button>
+                            <button class="btn-sm btn-primary none grayscale" id="screenShotDownloader" onclick="javascript:downloadScreenshots()">Download</button>
+                        </div>
+                        <div class="col-sm6">
+                            <label> <input type="checkbox" onclick="javascript:setAutoLoad(this.checked)" /> Automatically load new images </label><br />
+                            <label> <input type="checkbox" onclick="javascript:setAutoScreenshot(this.checked)" checked="" /> Take screenshots before loading new image </label>
+                        </div>
+                    </div>
+                    <div class="row hidden" id="sliceSliderRow">
+                        <div class="col-2" id="multiPurposeSliderLabel"><span id="sliceSliderName">&nbsp;</span>:</div>
+                        <div class="col-sm">
+                            <input type="number" min="0" max="1000" value="0.0" step="0.1" class="form-control-sm" name="sliceSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
+                            <input type="range" min="0" max="1000" value="0.0" step="0.1" class="slider" name="sliceSlider" oninput="javascript:setSlice(processSliderInput(this));" />
+                        </div>
+                    </div>
+                    <div class="row" id="cameraRotationSlider">
+                        <div class="col-2">Spin cam (y):</div>
+                        <div class="col-sm">
+                            <input type="number" min="0" max="360" value="0.0" step="0.1" class="form-control-sm" name="cameraSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
+                            <input type="range" min="0" max="360" value="0.0" step="0.1" class="slider" name="cameraSlider" oninput="javascript:setCamera(processSliderInput(this));" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-2">
+                            View mode:
+                        </div>
+                        <div class="col-sm ">
+                            <div class="btn-group btn-group-toggle grayscale" data-toggle="buttons">
+                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableSlice('x');javascript:activateButton(this);setSliceGuiText('X');" /> X </label>
+                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableSlice('y');javascript:activateButton(this);setSliceGuiText('Y');" /> Y </label>
+                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableSlice('z');javascript:activateButton(this);setSliceGuiText('Z');" /> Z </label>
+                                <label class="btn btn-sm btn-primary active"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableMIP();javascript:activateButton(this)" /> MIP </label>
+                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableIso();javascript:activateButton(this)" /> ISO </label>
+                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableAverage();javascript:activateButton(this)" /> Average </label>
+                            </div>
+                        </div>
+                        <div class="col-md">
+                            <label>
+                                Background:
+                                <input type="color" value="#282828" onchange="javascript:setBackgroundColor(this.value)" />
+                            </label>
+                        </div>
+                    </div>
+                    <div class="row largeTopSpacing" id="channelTabSelection">
+                        <div class="col">
+                            <div class="btn-group btn-group-toggle grayscale" data-toggle="buttons">
+                                <span  class="btn-primary"  name="channelTab">
+                                    <input type="checkbox" autocomplete="off" onclick="javascript:setChannelVisible(this.checked, getMyChannel(this));" checked="" />
+                                    <label class="btn btn-primary" >
+                                        <input type="radio" autocomplete="off" onclick="javascript:showChannelGui(this.parentNode);" />
+                                        <span name="channelTabLabel">&nbsp;</span>
+                                    </label>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- The contents of the following div are needed for each channel separately.
+						 For that purpose, we use this div as template and copy it for each channel.
+
+						 The divs with the class "channelProperties" will receive an attribute 
+						 "channelId", which holds the respective channel in order to identify the
+						 children (and send their data to the correct channel in the graphics card). 
+						-->
+                    <div class="row channelProperties" channelId="0">
+                        <div class="container">
+                            <div class="row channelName hidden">
+                                <div class="col-md" name="channelName">
+                                    &nbsp;
+                                </div>
+                            </div>
+                            <div class="row  additionalTopSpacing">
+                                <div class="col-2">
+                                    Color mode:
+                                </div>
+                                <div class="col-6">
+                                    <div class="btn-group btn-group-toggle  grayscale" data-toggle="buttons">
+                                        <label class="btn btn-sm btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'gray')" />Gray </label>
+                                        <label class="btn btn-sm btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'gray_rev')" />Gray^-1 </label>
+                                        <label class="btn btn-sm btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'viridis')" />Viridis </label>
+                                        <label class="btn btn-sm btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'hot_iron')" />Hot </label>
+                                        <label class="btn btn-sm btn-primary active"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleCustomColor(this)" />Custom </label>
+                                    </div>
+                                </div>
+                                <div class="col-md" name="customColorButton">
+                                    <label>
+                                        Custom:
+                                        <input type="color" value="#ffffff" onchange="javascript:setCustomColor(this.value, getMyChannel(this))" />
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="row hidden" name="isoSurfaceSliderRow">
+                                <div class="col-2">
+                                    Iso value:
+                                </div>
+                                <div class="col-sm">
+                                    <input type="number" min="0" max="1" value="1" step="0.001" class="form-control-sm" name="isoSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
+                                    <input type="range" min="0" max="1" value="1" step="0.001" class="slider" name="isoSlider" oninput="javascript:setIsoValue(this.value, getMyChannel(this))" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-2">
+                                    Contrast:
+                                </div>
+                                <div class="col-10">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <input type="number" min="0" max="1" value="0.0" step="0.001" class="form-control-sm" name="minSliderNumeric" onchange="javascript:processSliderNumericInput(this, getMyChannel(this))" />
+                                            <input type="range" min="0" max="1" value="0.0" step="0.001" class="slider" name="minSlider" oninput="javascript:setColorMinimum(processSliderInput(this, false), getMyChannel(this))" />
+                                        </div>
+                                        <div class="col-12">
+                                            <input type="number" min="0" max="1" value="1.0" step="0.001" class="form-control-sm" name="maxSliderNumeric" onchange="javascript:processSliderNumericInput(this, getMyChannel(this))" />
+                                            <input type="range" min="0" max="1" value="1.0" step="0.001" class="slider" name="maxSlider" oninput="javascript:setColorMaximum(processSliderInput(this, false), getMyChannel(this))" />
+                                        </div>
+                                        <div class="col-12">
+                                            <input type="number" min="0" max="3" value="1.0" step="0.001" class="form-control-sm" name="gammaSliderNumeric" onchange="javascript:processSliderNumericInput(this, getMyChannel(this))" />
+                                            <input type="range" min="0" max="3" value="1.0" step="0.001" class="slider" name="gammaSlider" oninput="javascript:setGamma(processSliderInput(this, false), getMyChannel(this))" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- The following parts manage screenshots. By default, the screenshot view is hidden -->
+        <div id="screenshotAlbum" class="none">
+            <div id="screenshotAlbumInner">
+                <div id="screenshotAreaCloseButton" class="crossed" onclick="javascript:closeScreenshotAlbum()">&nbsp;</div>
+                <div id="screenShotViewArea"></div>
+                <div id="screenShotNavigationArea">
+                    <input type="number" min="0" max="0" value="0" step="1" class="form-control-sm" name="screenshotSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
+                    <input type="range" min="0" max="0" value="0" step="1" class="slider" name="screenshotSlider" oninput="javascript:selectScreenshot(processSliderInput(this))" />
+                    <!--<button class="btn-sm btn-primary grayscale" onclick="javascript:closeScreenshotAlbum()">Close</button>-->
+                </div>
+            </div>
+        </div>
+
+        <!-- The following part pops up once there is new data available -->
+        <div id="reloadButtonRow">
+            A new image is available! <br />
+            <button class="btn-sm btn-primary grayscale" onclick="javascript:reloadTexture()">Reload image</button>
+        </div>
+
+        <!-- Show/hide the navigation area -->
+        <div id="navigationAreaCloseButton" class="crossed" onclick="javascript:toggleNavigation()">&nbsp;</div>
+
+        <!-- Axes inset -->
+        <div id="inset"></div>
+        <div id="insetLabel">
+            <span id="insetLabelRed">X</span>, <span id="insetLabelGreen">Y</span>,
+            <span id="insetLabelBlue">Z</span>
+        </div>
+
+        <div id="statusBars">
+            <div id="statusBar0" class="statusBarBackground none"><div id="statusBarInner0" class="statusBar">&nbsp;</div></div>
+            <div id="statusBar1" class="statusBarBackground none"><div id="statusBarInner1" class="statusBar">&nbsp;</div></div>
+            <div id="statusBar2" class="statusBarBackground none"><div id="statusBarInner2" class="statusBar">&nbsp;</div></div>
+            <div id="statusBar3" class="statusBarBackground none"><div id="statusBarInner3" class="statusBar">&nbsp;</div></div>
+        </div>
+
+        <script type="module">
+            import * as THREE from './includes/build/three.module.js';
+            import { OrbitControls } from './includes/examples/jsm/controls/OrbitControls.js';
+            import { TrackballControls } from './includes/examples/jsm/controls/TrackballControls.js';
+            import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js?v=4' ;
+            import { WEBGL } from './includes/examples/jsm/WebGL.js';
+
+            // Check availability of WebGL 2.0. We need 2.0 since WebGL 1.0 does
+            // not know 3D textures.
+            var webglMode = WEBGL.isWebGL2Available() ? 2 :( WEBGL.isWebGLAvailable() ? 1 : 0);
+            console.log("WebGL available? ", webglMode)
+            
+            // Prepare: get parameters from URL
+            var url = new URL(window.location.href);
+            var configUrl = url.searchParams.get('configUrl');
+            var dataUrl = url.searchParams.get('dataUrl');
+            var samplingRate = url.searchParams.get('samplingRate');
+            var useByte = url.searchParams.get('useByte') == 1 ? true : false;
+            var downscale = url.searchParams.get('downscale');
+            var padding = 0;
+            var useSampler3D = webglMode == 2; // if webgl2, use sampler3d
+            console.log("Sampler 3D: ", useSampler3D)
+            
+            if (configUrl === null) alert('Please provide the URL of a configuration file!');
+            if (dataUrl === null) alert('Please provide the URL of the data server\'s root location!');
+            if (useByte === null) useByte = 1;
+            if (downscale === null) downscale = 1;
+            if (samplingRate === null) samplingRate = 1;
+
+            // The webGL elements
+            var context, renderer, scene, camera, controls, material, cmtextures, texture, canvas, mesh;
+            var renderer2, scene2, camera2;
+
+            var sampler2DGridX = 1;
+            var sampler2DGridY = 1;
+
+            var numChannels = 1; // The number of channels provided by the data, in [1,4].
+            var numChannelsGPU = 1; // Like above, but considers limits of WebGL. E.g. there can't be 2 - we would use 3 and fill up with zeros.
+            var dataChannels = null; // Array of the channel names (which is their respective wavelength)
+            var loadedDataVersion = null; // Array of timestamps of currently loaded (=visible) data
+            var loadedDataDimension = [0, 0, 0]; // Number of elements per axis
+            var loadedDataScale = [1, 1, 1]; // Voxel spacing at x, y, z
+
+            var latestDataVersion; // Array of timestamps of latest available data (note necessarily loaded)
+            var latestDataUrl; // Array of latest available data URLs
+            var dataDimension = [0, 0, 0]; // Number of elements per axis
+            var dataScale = [1, 1, 1]; // Voxel spacing for x, y, z dimensions
+            var noTextureLoaded = true; // Just to know if we have successfully loaded anything
+            var autoScreenshot = true; // If true, a screenshot is taken just before a new texture is loaded
+            var autoLoad = false; // If true, new datasets are loaded automatically
+            var dataOffsets = []; // should contains objects with each x, y, z offset for respective channel: [{"x":0, "y":1, "z":2}, ...]
+            var dataAxesFlips = [] //should contains objects with each x, y, z, boolean whether axes should be flipped
+
+            // Start everything
+            if(webglMode === 0) {
+                alert("Your browser does not support WebGL")
+            } else {
+                init();
+            }
+
+            /**
+             * This function starts the graphics engine and triggers all loading processes
+             */
+            function init() {
+                // Create the THREE.js basics
+                scene = new THREE.Scene();
+                var canvasHolder = document.getElementById('mainCanvas');
+                canvas = document.createElement('canvas');
+                context = canvas.getContext('webgl2', { alpha: false, antialias: false });
+                    
+                renderer = new THREE.WebGLRenderer({ canvas: canvas, context: context, preserveDrawingBuffer: true });
+                renderer.setClearColor(0x282828); // Background color
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(canvasHolder.clientWidth, canvasHolder.clientHeight);
+                canvasHolder.appendChild(renderer.domElement);
+
+                // Create orthographics camera. Perspective won't work with raycasting. (Could be done, somehow, but...)
+                var h = 1024; // Height of the view, which is sort of the "zoom level". TODO: maybe update it after data loading?
+                var aspect = canvasHolder.clientWidth / canvasHolder.clientHeight;
+                camera = new THREE.OrthographicCamera((-h * aspect) / 2, (h * aspect) / 2, h / 2, -h / 2, 0, 999999);
+                // The camera must have a distance large enough from the data, otherwise annoying clipping can occur.
+                camera.position.set(0, 0, 5000);
+                camera.up.set(0, 1, 0);
+                initInset();
+
+                // Create . The target will be updated once we know the data size.
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.addEventListener('change', render);
+                controls.target.set(64, 64, 128);
+                controls.minZoom = 0.1;
+                controls.maxZoom = 100;
+                controls.update();
+
+                /*
+				controls = new TrackballControls( camera, renderer.domElement );
+                controls.rotateSpeed = 1.0;
+                controls.zoomSpeed = 1.2;
+                controls.panSpeed = 0.8;
+                controls.staticMoving = true;
+                controls.dynamicDampingFactor = 0.3;
+                controls.keys = [ 65, 83, 68 ];
+                controls.addEventListener( 'change', render );
+                */
+
+                // Now we start observing our data source (and also window size changes)
+                observeExternalDataSource();
+                window.addEventListener('resize', onWindowResize, false);
+            }
+
+            /**
+             * Creates a second view showing orientation/axes
+             */
+            function initInset() {
+                var container = document.getElementById('inset');
+                renderer2 = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer2.setClearColor(0xf0f0f0, 0);
+                renderer2.setSize(container.offsetWidth, container.offsetHeight);
+                container.appendChild(renderer2.domElement);
+
+                scene2 = new THREE.Scene();
+                // Orthographic camera confused me/didn't work (wrong frustum?).
+                // However, perspective is not a problem here.
+                //camera2 = new THREE.OrthographicCamera( -1, 1, 1, -1, 0.1, 1000 );
+                camera2 = new THREE.PerspectiveCamera(50, container.offsetWidth / container.offsetHeight, 0.1, 1000);
+                camera2.up = camera.up; // important!
+
+                var axes = new THREE.AxesHelper(1);
+                var colors = axes.geometry.attributes.color;
+                colors.setXYZ(0, 1.0, 0.1, 0.1); // index, R, G, B
+                colors.setXYZ(1, 1.0, 0.1, 0.1); // red
+                colors.setXYZ(2, 0.2, 0.8, 0.1);
+                colors.setXYZ(3, 0.2, 0.8, 0.1); // green
+                colors.setXYZ(4, 0.1, 0.4, 1);
+                colors.setXYZ(5, 0.1, 0.4, 1); // blue
+                axes.material.linewidth = 2;
+                scene2.add(axes);
+            }
+
+            /**
+             * The constant observation of our JSON config file in order to see if data has changed.
+             * If data has changed, this function will trigger the reloading process
+             */
+            function observeExternalDataSource() {
+                fetchJSONFile(
+                    configUrl + '?' + Math.random(),
+                    function(data) {
+                        numChannels = Object.keys(data.timestamp).length;
+                        console.log('Checked the config file');
+
+                        // If null, this is the very first time we check for data. Create the meta data.
+                        if (loadedDataVersion === null) {
+                            // Note, the downscale parameter is usually 1. It could be used to only every n^th
+                            // voxel along x and y. Furthermore, we normalize the data scale in a way that the
+                            // smallest dimension is 1.0. This is necessery in order to avoid oversampling
+                            // during the volume rendering (the volume rendering will perform steps in data
+                            // space, which means that e.g. a dataScale > 1 leads to more than one step per
+                            // actual data point).
+                            dataDimension = [data.xsize / downscale, data.ysize / downscale, data.zsize];
+                            var minScale = Math.min(data.xpixelsize, data.ypixelsize, data.zpixelsize);
+                            dataScale = [(data.xpixelsize * downscale) / minScale, (data.ypixelsize * downscale) / minScale, data.zpixelsize / minScale];
+
+                            dataChannels = Array();
+                            loadedDataVersion = Array();
+                            latestDataVersion = Array();
+                            latestDataUrl = Array();
+
+                            for (var key in data.timestamp) {
+                                dataChannels.push(key);
+                                loadedDataVersion[key] = '';
+                                latestDataVersion[key] = '';
+                                latestDataUrl[key] = '';
+                            }
+
+                            console.log(dataChannels);
+                            initTexture();
+                        }
+
+                        for (var i = 0; i < dataChannels.length; i++) {
+                            var c = dataChannels[i];
+                            if (data.timestamp[c] !== latestDataVersion[c]) {
+                                latestDataUrl[c] = data.filelocation[c];
+                                latestDataVersion[c] = data.timestamp[c];
+                                console.log('Channel ', c, 'has changed and needs an update');
+                                if (autoLoad || loadedDataVersion[c] == '') {
+                                    loadTexture();
+                                } else {
+                                    showReloadButton();
+                                }
+                            }
+                        }
+
+                        // Check again in 3 seconds
+                        window.setTimeout(observeExternalDataSource, 3000);
+                    },
+                    couldNotFindConfig
+                );
+            }
+
+            /**
+             * A vague message that something went somehow wrong.
+             */
+            function couldNotFindConfig() {
+                alert('Error! Could not access the config file. Is the URL correct? ' + configUrl);
+            }
+
+            /**
+             * We create the initial texture. We can do this once we know tha size of the data.
+             */
+            function initTexture() {
+                var x = dataDimension[0] + 2 * padding;
+                var y = dataDimension[1] + 2 * padding;
+                var z = dataDimension[2] + 2 * padding;
+                var xScale = dataScale[0];
+                var yScale = dataScale[1];
+                var zScale = dataScale[2];
+
+
+
+                // THREE.js/WebGL seems to be quite restriced regarding data types and texture layout.
+                // First, it is unable to use any 2 byte type. Hence we have to use either ubyte or float32.
+                // Second, the number of channels can only be 1, 3, or 4 (Luminance/Red, RGB, RGBA) for
+                // bytes or 1 and 4 for float32. Hence we consider various cases:
+
+                numChannelsGPU = numChannels; // Best case: it's just the same
+                if (numChannels == 2) {
+                    numChannelsGPU = 3; // Nope, there is no two-channel-GPU format, use 3!
+                }
+
+                if (numChannelsGPU == 3 && !useByte) {
+                    numChannelsGPU = 4; // Hmm, also no three channels for float
+                }
+
+                var dataArray = null;
+                var numTotal = x * y * z * numChannelsGPU;
+                if(!useSampler3D) {
+                    var maxTexSize = renderer.capabilities.maxTextureSize;
+                    sampler2DGridX = Math.floor(maxTexSize / (2 * padding + x));
+                    sampler2DGridY = Math.ceil((2 * padding + z) / sampler2DGridX);
+                    numTotal = sampler2DGridX * (2 * padding + x) * sampler2DGridY * (2 * padding + y) * numChannelsGPU;
+                    console.log("Total number of voxels:", numTotal)
+                }
+
+                if (useByte) {
+                    dataArray = new Uint8Array(numTotal);
+                } else {
+                    dataArray = new Float32Array(numTotal);
+                }
+                dataArray.fill(0); // For now, it's all black
+
+                if(useSampler3D) {
+                    texture = new THREE.DataTexture3D(dataArray, x, y, z);
+                }
+                else {
+                    texture = new THREE.DataTexture(dataArray, x * sampler2DGridX, y * sampler2DGridY);
+                    console.log("Max texture size is", maxTexSize)
+                    console.log("Hence, use a grid of ", sampler2DGridX, sampler2DGridY)
+                }
+
+                if (useByte) {
+                    texture.type = THREE.UnsignedByteType;
+                } else {
+                    texture.type = THREE.FloatType;
+                    //texture.format = THREE.RedFormat; // TODO: maybe float single channel must be RedFormat
+                }
+
+                if (numChannelsGPU == 1) {
+                    texture.format = THREE.LuminanceFormat;
+                } else if (numChannelsGPU == 3) {
+                    texture.format = THREE.RGBFormat;
+                } else {
+                    texture.format = THREE.RGBAFormat;
+                }
+
+                texture.minFilter = texture.magFilter = THREE.LinearFilter;
+                // Alternative; but ugly and no meaningful speed gain:
+                //texture.minFilter = texture.magFilter = THREE.NearestFilter;
+                // Not too sure about the following one or if alternatives would be better.
+                texture.unpackAlignment = 1;
+
+                // Colormap textures. Any number could be added (however, also the GUI must be updated then).
+                cmtextures = {
+                    viridis: new THREE.TextureLoader().load('includes/examples/textures/cm_viridis.png', render),
+                    gray: new THREE.TextureLoader().load('includes/examples/textures/cm_gray.png', render),
+                    gray_rev: new THREE.TextureLoader().load('includes/examples/textures/cm_gray_rev.png', render),
+                    hot_iron: new THREE.TextureLoader().load('includes/examples/textures/cm_hot_iron.png', render)
+                };
+
+                // Material and uniforms
+                var shader = VolumeRenderShader1;
+                var uniforms = THREE.UniformsUtils.clone(shader.uniforms);
+
+                var volX = x * xScale;
+                var volY = y * yScale;
+                var volZ = z * zScale;
+
+                // Now update these uniforms about which we have learned something new.
+                uniforms['u_data'].value = texture;
+                uniforms['u_samplingRate'].value = samplingRate;
+                uniforms['u_size'].value.set(volX, volY, volZ);
+                uniforms['u_grid2D'].value.set(sampler2DGridX, sampler2DGridY);
+                uniforms['u_numSlices'].value.set(x, y, z);
+                uniforms['u_cmdata_0'].value = cmtextures['gray'];
+                uniforms['u_cmdata_1'].value = cmtextures['gray'];
+                uniforms['u_cmdata_2'].value = cmtextures['gray'];
+                uniforms['u_cmdata_3'].value = cmtextures['gray'];
+                for (var i = 0; i < numChannels; i++) uniforms['u_used_' + i].value = 1;
+                console.log('Initial state of uniforms:', uniforms);
+
+                // Prepare uniforms and shaders
+                material = new THREE.ShaderMaterial({
+                    uniforms: uniforms,
+                    vertexShader: shader.vertexShader,
+                    fragmentShader: shader.getFragmentShader(useSampler3D, dataDimension[2]),
+                    side: THREE.BackSide // The volume shader uses the backface as its "reference point"
+                });
+
+                // A box with the size of the data. We will use its walls as canvas for rendering.
+                var geometry = new THREE.BoxBufferGeometry(volX, volY, volZ);
+                geometry.translate(volX / 2, volY / 2, volZ / 2); // Or plus -0.5 per component, as in example?
+                mesh = new THREE.Mesh(geometry, material);
+
+                // Make the controls (camera) look at the right spot.
+                controls.target.set(volX / 2, volY / 2, volZ / 2);
+                controls.update();
+                scene.add(mesh);
+                render();
+                addChannelsToGui(dataChannels);
+            }
+
+            /**
+             * Transforms x/y/z coordinates to x/y coordinates of a new texture in which all 
+             * layers are placed next to each other in a grid
+             * @param {int} x X coordinate in 3D texture
+             * @param {int} y Y coordinate in 3D texture
+             * @param {int} z Z coordinate in 3D texture
+             */
+            function moveTo2DSamplerPosition(x, y, z) {
+                var offsetX = ((z) % sampler2DGridX) * (2 * padding + dataDimension[0]);
+                var offsetY = Math.floor(z / sampler2DGridX) * (2 * padding + dataDimension[1]);
+                //console.log("Move ", x, y, z, "to", x + offsetX, y + offsetY)
+                return[ x + offsetX, y + offsetY]
+            }
+
+
+            // Some functions just being used to communicate the right channel to the loading process.
+            // TODO: Ahhhh, sorry, not nice. Maybe there is a smarter way?
+            function handleTextureData0(data) {
+                handleTextureData(data, 0);
+            }
+            function handleTextureData1(data) {
+                handleTextureData(data, 1);
+            }
+            function handleTextureData2(data) {
+                handleTextureData(data, 2);
+            }
+            function handleTextureData3(data) {
+                handleTextureData(data, 3);
+            }
+
+
+            /**
+             * Receive bytes with data of one (!) channel and copies the bytes at their
+             * respective place in the texture (which is like every n^th byte, with n
+             * the number of channels). Besides that, data is stretched towards the
+             * maximum value in order to make "the best of the bytes".
+             * @param {bytes} data The raw uint16 byte image data
+             * @param {int} channel The channel the texture should be loaded to
+             */
+            function handleTextureData(data, channel) {
+                console.log('Received new texture data for channel', channel);
+                setLoadingStatus(channel, 95, "Create texture");
+                // The data always arrives as Uint16
+                var array = new Uint16Array(data);
+
+                // Find out the max, so we can normalize
+                var maxVal = 0;
+                for (var i = 0; i < array.length; i++) {
+                    maxVal = Math.max(array[i], maxVal);
+                }
+                maxVal = Math.max(maxVal, 255.);
+                maxVal = parseFloat(maxVal);
+                console.log("Normalizing to ", maxVal)
+
+                // Load the data and normalize to [0,1]. If texture uses bytes, convert to [0,255].
+                var val = 0;
+                console.time('Timer for updating texture:');
+
+                var offsetX = 0;
+                var offsetY = 0;
+                var offsetZ = 0;
+                var flipX = false;
+                var flipY = false;
+                var flipZ = false;
+
+                // The data copy process. The last case is the easiest one. I kept in separately in order
+                // to copy data at highest speed.
+                if(padding > 0 || offsetX !== 0 || offsetY !== 0 || offsetZ !== 0 || flipX || flipY || flipZ || !useSampler3D) {
+                    console.log("Copy data and potentially rotate, flip, or add padding.")
+                    var numX = dataDimension[0] + 2 * padding;
+                    var numXOrig = dataDimension[0] * downscale;
+                    var numXY = (dataDimension[1] + 2 * padding) * numX;
+                    var numXYOrig = dataDimension[1] * downscale * numXOrig;
+                    if(!useSampler3D) { 
+                        numX = sampler2DGridX * numX;
+                        numXY = (dataDimension[1] + 2 * padding) * sampler2DGridY * numX // not needed in that case
+                    }
+                    var toX, toY, toZ;
+                    // This loop runs in data (origin) space, hence without padding
+                    // Note: it is way faster do let x be fastest changing index! 
+                    for (var z = 0; z < dataDimension[2]; z++) {
+                        for (var y = 0; y < dataDimension[1]; y++) {
+                            for (var x = 0; x < dataDimension[0]; x++) {
+                                // Reading the texture is easy
+                                val = parseFloat(array[x * downscale + y * downscale * numXOrig + z * numXYOrig]) / maxVal;
+                                if (useByte) {
+                                    val = parseInt(val * 255);
+                                }
+                                // We flip first, still in data space, without offsets or padding
+                                if(flipX) toX = dataDimension[0] - toX - 1; 
+                                if(flipY) toY = dataDimension[1] - toY - 1;
+                                if(flipZ) toZ = dataDimension[2] - toZ - 1;
+
+                                // Now we move the target position around
+                                toX = (x + padding + offsetX);
+                                toY = (y + padding + offsetY);
+                                toZ = (z + padding + offsetZ);
+
+                                // Since we are in texture space now, we can check against texture boundaries
+                                if(toX < 0 || toY < 0 || toZ < 0 || 
+                                   toX >= dataDimension[0] + 2 * padding || 
+                                   toY >= dataDimension[1] + 2 * padding || 
+                                   toZ >= dataDimension[2] + 2 * padding)
+                                {
+                                    continue; // Out of bounds
+                                }
+
+                                // In case we use 2D sampler, the position must be changed. In this mode, we
+                                // don't have a third dimension but we store the images in a 2D grid (e.g. 
+                                // we have one big texture that hold like 32 * 12 slices in a grid layout)
+                                if(!useSampler3D) {
+                                    var xy2D = moveTo2DSamplerPosition(toX, toY, toZ);
+                                    toX = xy2D[0];
+                                    toY = xy2D[1];
+                                    toZ = 0;
+                                }
+                                texture.image.data[(toX + toY * numX + toZ * numXY) * numChannelsGPU + channel] = val;
+                            }
+                        }
+                    }
+                }
+                else {
+                    // A bit more complicated, we only copy every n^th byte to reduce texture size. I think this is
+                    // probably never used because the performance benefit is rather non -existing
+                    if (downscale > 1) {
+                        console.log("Copy data and downscale by", downscale);
+                        var numX = dataDimension[0];
+                        var numXOrig = dataDimension[0] * downscale;
+                        var numXY = dataDimension[1] * numX;
+                        var numXYOrig = dataDimension[1] * downscale * numXOrig;
+                        for (var z = 0; z < dataDimension[2]; z++) {
+                            for (var y = 0; y < dataDimension[1]; y++) {
+                                for (var x = 0; x < dataDimension[0]; x++) {
+                                    val = parseFloat(array[x * downscale + y * downscale * numXOrig + z * numXYOrig]) / maxVal;
+                                    if (useByte) {
+                                        val = parseInt(val * 255);
+                                    }
+                                    texture.image.data[(x + y * numX + z * numXY) * numChannelsGPU + channel] = val;
+                                }
+                            }
+                        }
+                    } else {
+                        console.log("Copy data in regular and fast approach")
+                        for (var i = 0; i < texture.image.data.length; i += downscale * numChannelsGPU) {
+                            val = parseFloat(array[i / numChannelsGPU]) / maxVal;
+                            if (useByte) {
+                                val = parseInt(val * 255);
+                            }
+                            texture.image.data[i + channel] = val;
+                        }
+                    }
+                }
+                console.timeEnd('Timer for updating texture:');
+
+                console.log('Updated texture:', texture);
+                loadingFinished(channel);
+                texture.needsUpdate = true;
+                render();
+            }
+
+            /**
+             * Compares the loaded data with the available data. If we are outdated,
+             * show the reload button.
+             */
+            function checkIfShowReloadButton() {
+                var hide = true;
+                for (var i = 0; i < dataChannels.length; i++) {
+                    var c = dataChannels[i];
+                    if (loadedDataVersion[c] !== latestDataVersion[c]) {
+                        console.log('Dimension ', c, 'is not the most recent version');
+                        hide = false;
+                    }
+                }
+                if (hide) {
+                    hideReloadButton();
+                }
+            }
+
+            /**
+             * Triggers the loading process of all outdated textures. This one is called either
+             * automatically or manually be the reload button (depends on the settings).
+             */
+            function loadTexture() {
+                for (var i = 0; i < dataChannels.length; i++) {
+                    var c = dataChannels[i];
+                    if (loadedDataVersion[c] !== latestDataVersion[c]) {
+                        console.log('Reloading channel', c);
+                        if (autoScreenshot) takeScreenshot();
+                        loadedDataVersion[c] = latestDataVersion[c];
+                        var loader = new THREE.FileLoader();
+                        loader.setResponseType('arraybuffer');
+                        // Note, we replace a sharp by the user-defined port
+                        var url = latestDataUrl[c].replace('#', dataUrl) + '?' + Math.random(); // Random string to prevent caching
+
+                        // Hmmmm. since we have up to four different textures, we have four
+                        // different processing functions. Eventually, it will all be performed
+                        // by the same function, but for now I don't know how to properly pass
+                        // the intended channel. (TODO?)
+                        if (i == 0)
+                            loader.load(url, function(data) {
+                                handleTextureData0(data);
+                            }, loadingStatus0);
+                        if (i == 1)
+                            loader.load(url, function(data) {
+                                handleTextureData1(data);
+                            }, loadingStatus1);
+                        if (i == 2)
+                            loader.load(url, function(data) {
+                                handleTextureData2(data);
+                            }, loadingStatus2);
+                        if (i == 3)
+                            loader.load(url, function(data) {
+                                handleTextureData3(data);
+                            }, loadingStatus3);
+                    }
+                }
+
+                // Now -- at least after the triggered processes have finished -- we can be sure
+                // to have at least one texture loaded.
+                noTextureLoaded = false;
+
+                // We can disable the reload button now (if nothing else is outdated)
+                checkIfShowReloadButton();
+            }
+
+            function loadingStatus0(value) {loadingStatus(value, 0);}
+            function loadingStatus1(value) {loadingStatus(value, 1);}
+            function loadingStatus2(value) {loadingStatus(value, 2);}
+            function loadingStatus3(value) {loadingStatus(value, 3);}
+
+            /**
+             * Sets the loading bars according to the status. However, the function stops at
+             * 95% because afterwards we have to update the texture which takes some time and
+             * will FREEZE the screen (hence, no updates of the status bar possible). 
+             * Of course we could just display any percentage, but 95% sounds optimistic.
+             * @param {Object} value The THREE.js progress object
+             * @param {int} channel The channel for which we should update the status bar
+             */
+            function loadingStatus(value, channel) {
+                console.log("Loading", value)
+                if ( value.lengthComputable ) {
+                    var percentage = Math.round(95 * value.loaded / value.total); 
+                    setLoadingStatus(channel, percentage, "Loading");
+                }
+                document.getElementById("statusBar" + channel).classList.remove("none")
+            }
+
+            function setLoadingStatus(channel, percentage, text) {
+                document.getElementById("statusBarInner" + channel).style.width = percentage + '%';
+                // Adding a space before, just for the optics (I know, this is the lazy way...)
+                document.getElementById("statusBarInner" + channel).innerHTML = "&nbsp;" + percentage + '% ' + text;
+            }
+
+            function loadingFinished(channel) {
+                document.getElementById("statusBar" + channel).classList.add("none")
+            }
+
+            /**
+             * Handler for resizing event. Maintains correct camera FOV.
+             */
+            function onWindowResize() {
+                console.log('Resize');
+                var canvasList = ['mainCanvas'];
+                for (var i = 0; i < canvasList.length; i++) {
+                    var canvas = document.getElementById(canvasList[i]);
+                    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+                    var aspect = canvas.clientWidth / canvas.clientHeight;
+                    var frustumHeight = camera.top - camera.bottom;
+                    camera.left = (-frustumHeight * aspect) / 2;
+                    camera.right = (frustumHeight * aspect) / 2;
+                    camera.updateProjectionMatrix();
+                }
+                render();
+            }
+
+            /**
+             * The render loop
+             */
+            function render() {
+                renderer.render(scene, camera);
+                console.log(camera);
+                camera2.position.copy(camera.position);
+                camera2.position.sub(controls.target);
+                camera2.position.setLength(2);
+                camera2.lookAt(scene2.position); // Copy perspective from main camera
+                renderer2.render(scene2, camera2);
+            }
+
+            /**
+             * Get JSON file and trigger further processing.
+             * @param {string} url Address of the file. Must be provided by http, not local file.
+             * @param {function} callbackSuccess Function to receive the JSON data.
+             * @param {function} callbackFail Function to say sorry in case this failed.
+             */
+            function fetchJSONFile(url, callbackSuccess, callbackFail) {
+                var httpRequest = new XMLHttpRequest();
+                httpRequest.onreadystatechange = function() {
+                    if (httpRequest.readyState === 4) {
+                        if (httpRequest.status === 200) {
+                            var data = JSON.parse(httpRequest.responseText);
+                            if (callbackSuccess) callbackSuccess(data);
+                        } else {
+                            alert('Error requesting the JSON file. Wrong URL? \n\nHttpRequest error code: ' + httpRequest.status);
+                        }
+                    }
+                };
+                httpRequest.onerror = callbackFail;
+                try {
+                    httpRequest.open('GET', url);
+                    httpRequest.send();
+                } catch (error) {
+                    alert('Could not load the config JSON file. \n\n  ' + JSON.stringify(error));
+                    console.error(error);
+                }
+            }
+
+            /////////////////////////////////////////////////////////////////
+            // Function being accessable from outside this module (e.g. GUI)
+
+            /**
+             *  Takes a screenshot (at least if a texture was loaded) and sends it to the GUI
+             */
+            function takeScreenshot() {
+                if (noTextureLoaded) return;
+                renderer.render(scene, camera);
+                addScreenshot(renderer.domElement.toDataURL());
+            }
+            window.takeScreenshot = takeScreenshot;
+
+            /**
+             * Enables or disables automated screenshot acquisition whenever (just before) a
+             * new texture is loaded.
+             * @param {boolean} value
+             */
+            function setAutoScreenshot(value) {
+                autoScreenshot = value;
+            }
+            window.setAutoScreenshot = setAutoScreenshot;
+
+            /**
+             * Enables or disables automated reloading of new textures once we know there is
+             * a new texture available.
+             * @param {boolean} value
+             */
+            function setAutoLoad(value) {
+                autoLoad = value;
+            }
+            window.setAutoLoad = setAutoLoad;
+
+            function setChannelVisible(val, channel) {
+                material.uniforms['u_used_' + channel].value = val ? 1 : 0;
+                render();
+            } 
+            window.setChannelVisible = setChannelVisible
+
+            /**
+             * Sets the colormap. Sends texture to shader and tells shader to use this
+             * texture (rather than e.g. a custom color).
+             * @param {string} mapName Name of the colormap (as it was loaded before)
+             * @param {int} channel Which channel this should be used for (in [0,3])
+             */
+            function setColorMap(mapName, channel) {
+                material.uniforms['u_colormode_' + channel].value = 0;
+                material.uniforms['u_cmdata_' + channel].value = cmtextures[mapName];
+                render();
+            }
+            window.setColorMap = setColorMap;
+
+            /**
+             * Enable maximum intensity projection.
+             */
+            function enableMIP() {
+                // Enable rotation and pan (could have been disabled by slice view)
+                controls.enableRotate = true;
+                controls.enablePan = true;
+                hideSliceAndIsoSlider();
+                material.uniforms['u_renderstyle'].value = 0;
+                render();
+            }
+            window.enableMIP = enableMIP;
+
+            /**
+             * Enable average projection.
+             */
+            function enableAverage() {
+                // Enable rotation and pan (could have been disabled by slice view)
+                controls.enableRotate = true;
+                controls.enablePan = true;
+                hideSliceAndIsoSlider();
+                material.uniforms['u_renderstyle'].value = 3;
+                render();
+            }
+            window.enableAverage = enableAverage;
+
+            /**
+             * Enables the iso surface view in the shader.
+             */
+            function enableIso() {
+                hideSliceAndIsoSlider();
+                // Enable rotation and pan (could have been disabled by slice view)
+                controls.enableRotate = true;
+                controls.enablePan = true;
+
+                showIsoSlider();
+                material.uniforms['u_renderstyle'].value = 1;
+                render();
+            }
+            window.enableIso = enableIso;
+
+            /**
+             * Sets a iso value for the iso surface calculation.
+             * @param {float} val The iso value
+             * @param {int} channel Which channel this should be used for (in [0,3])
+             */
+            function setIsoValue(val, channel) {
+                material.uniforms['u_renderthreshold_' + channel].value = val;
+                render();
+            }
+            window.setIsoValue = setIsoValue;
+
+            /**
+             * Sets a current slice for the slice view. Note, this value will be used
+             * to "cut" the value at each time simultaneously. The actually visible
+             * plane (e.g. xy, xz, yz) is, then, just a matter of the camera
+             * perspective.
+             * @param {float} val The position of the plane, in [0, n] with n = width/...
+             */
+            function setSlice(val) {
+                material.uniforms['u_slice'].value = val;
+                render();
+            }
+            window.setSlice = setSlice;
+
+            function setCamera(val) {
+                var valRad = val / 180. * Math.PI;
+                var l = camera.position.length();
+                var x = Math.sin(valRad)
+                var z = Math.cos(valRad)
+                var newPos =  new THREE.Vector3(x * 5000, 0, z * 5000)
+                var center = new THREE.Vector3( controls.target.x, 
+                    controls.target.y, 
+                    controls.target.z )
+                newPos.add(center)
+                camera.position.set(newPos.x, newPos.y, newPos.z);
+                console.log(camera.position)
+                //console.log(camera.lookAt())
+                //camera.position.setY(controls.target.y);
+                /*
+                camera.lookAt( new THREE.Vector3(padding + dataDimension[0] / 2, 
+                                                 padding + dataDimension[1] / 2, 
+                                                 padding + dataDimension[2] / 2) );*/
+                camera.lookAt( new THREE.Vector3(controls.target.x, 
+                                                controls.target.y, 
+                                                controls.target.z ) );
+                render();
+            }
+            window.setCamera = setCamera;
+
+            /**
+             * Sets the lower end for the colormap stretching.
+             * @param {float} val The darkest visible intensity (in [0, 1])
+             * @param {int} channel Which channel this should be used for (in [0,3])
+             */
+            function setColorMinimum(val, channel) {
+                material.uniforms['u_clim_' + channel].value.set(val, material.uniforms['u_clim_' + channel].value.y);
+                render();
+            }
+            window.setColorMinimum = setColorMinimum;
+
+            /**
+             * Sets the upper end for the colormap stretching.
+             * @param {float} val The brightest visible intensity (in [0, 1])
+             * @param {int} channel Which channel this should be used for (in [0,3])
+             */
+            function setColorMaximum(val, channel) {
+                material.uniforms['u_clim_' + channel].value.set(material.uniforms['u_clim_' + channel].value.x, val);
+                render();
+            }
+            window.setColorMaximum = setColorMaximum;
+
+            /**
+             * Sets the gamma value used for the colormap.
+             * @param {float} val The gamma value (something around 1, like [0.5, 3]; it's not validated or clipped)
+             * @param {int} channel Which channel this should be used for (in [0,3])
+             */
+            function setGamma(val, channel) {
+                material.uniforms['u_gamma_' + channel].value = val;
+                render();
+            }
+            window.setGamma = setGamma;
+
+            /**
+             * Enable custom color as colormap. Values will be mapped to colors
+             * interpolated between black and a custom color.
+             * @param {int} channel Which channel this should be used for (in [0,3])
+             */
+            function enableCustomColor(channel) {
+                material.uniforms['u_colormode_' + channel].value = 1;
+                render();
+            }
+            window.enableCustomColor = enableCustomColor;
+
+            /**
+             * Set a custom color that is used as upper end for the colormapping.
+             * The lower end will be black; concrete colors are interpolated from
+             * in between.
+             * And, a short note, we decrease fully saturated colors a little bit
+             * (e.g. from (1,1,1) to (0.98, 0.98, 0.98)) to maintain proper lighting
+             * of highlights.
+             * @param {color} color The color value - anything understandable by THREE, e.g. #000000
+             * @param {int} channel Which channel this should be used for (in [0,3])
+             */
+            function setCustomColor(color, channel) {
+                var c = new THREE.Color(color);
+                material.uniforms['u_customcolor_' + channel].value.set(c.r, c.g, c.b);
+                render();
+            }
+            window.setCustomColor = setCustomColor;
+
+            /**
+             * Background color of the rendered image
+             * @param {color} color Anything that can be pares to a color by THREE.color()
+             */
+            function setBackgroundColor(color) {
+                renderer.setClearColor(color);
+                render();
+            }
+            window.setBackgroundColor = setBackgroundColor;
+
+            /**
+             * Enable the slice view (cutting planes).
+             * @param {string} type Which slice/orentation, can be "x", "y", "z"
+             */
+            function enableSlice(type) {
+                hideSliceAndIsoSlider();
+                showSliceSlider();
+
+                // Disable rotation and pan
+                controls.enableRotate = false;
+                controls.enablePan = false;
+                console.log('Controls:', controls);
+
+                // TODO: the quaternions are not really justified so far. Better solution?
+                if (type == 'x') {
+                    setSliceSliderRange(dataDimension[0]);
+                    setCamera(90.);
+                    /*
+                    camera.position.set(5000, controls.target.y, controls.target.z);
+                    camera.quaternion.set(0.5, 0.5, 0.5, 0.5);*/
+                } else if (type == 'y') {
+                    setSliceSliderRange(dataDimension[1]);   
+                    camera.position.set(controls.target.x, 5000, controls.target.z);
+                    camera.quaternion.set(0, 1 / Math.sqrt(2), 1 / Math.sqrt(2), 0);
+                    
+                } else {
+                    setSliceSliderRange(dataDimension[2]);
+                    setCamera(0);
+                    /*
+                    camera.position.set(controls.target.x, controls.target.y, 5000);
+                    camera.quaternion.set(0, 0, 0, 1);*/
+                }
+                material.uniforms['u_renderstyle'].value = 2;
+                render();
+            }
+            window.enableSlice = enableSlice;
+
+            /**
+             * Originally, reloading and loading behaved differently. However,
+             * this function is the one called from the GUI (whereas loadTexture()
+             * is used only within the module)
+             */
+            function reloadTexture() {
+                loadTexture();
+            }
+            window.reloadTexture = reloadTexture;
+        </script>
+
+        <script>
+            // This part contains pure GUI-related functions. They don't interact
+            // with THREE.js directly but rather call the "public" function that
+            // are defined in the module above.
+
+            /**
+             * Rebuilds the parts of the GUI that hold channel-related elements.
+             * @param {array} channels An array containing the channel names, e.g. ["530", "420"]
+             */
+            function addChannelsToGui(channels) {
+                var numChannels = channels.length;
+
+                // Basically, we have to do two things: copying all settings/sliders,
+                // and adding a button to open the respective controls.
+                // Note, the insertion points just point to the last-added element in
+                // order to insert the next one at the right place (=to maintain order)
+                var template = document.getElementsByClassName('channelProperties')[0]; // There is one template for the settings...
+                var insertionPoint = template;
+
+                var templateHeadline = document.getElementsByName('channelTab')[0]; // ...and one for the "headline"
+                var insertionPointHeadline = templateHeadline;
+
+                for (var i = 0; i < numChannels; i++) {
+                    var newElement = template.cloneNode(true);
+                    var newElementHeadline = templateHeadline.cloneNode(true);
+
+                    // Make clear to which channel these settings belong
+                    newElement.setAttribute('channelId', i);
+                    newElement.querySelector('*[name="channelName"]').innerHTML = 'Channel ' + i + ': ' + channels[i];
+                    template.parentNode.insertBefore(newElement, insertionPoint.nextSibling);
+                    insertionPoint = newElement; // To keep the order: 0 - 1 - 2 - ...
+
+                    // Also give the headline proper content, and assign it to a channel
+                    newElementHeadline.setAttribute('channelId', i);
+                    newElementHeadline.querySelector('*[name="channelTabLabel"]').innerHTML = 'Channel ' + i + ': ' + channels[i];
+                    templateHeadline.parentNode.insertBefore(newElementHeadline, insertionPointHeadline.nextSibling);
+                    insertionPointHeadline = newElementHeadline; // To keep the order: 0 - 1 - 2 - ...
+
+                    if (i == 0) {
+                        newElementHeadline.classList.add('active');
+                    } else {
+                        newElement.classList.add('hidden');
+                    }
+                }
+
+                // Now remove the dummies since they have been copied for each channel
+                template.remove();
+                templateHeadline.remove();
+                setWavelengthAsCustomColor(channels);
+            }
+
+            /**
+             * Show all GUI elements related to a certain channel.
+             * Highlights the button that called this function.
+             * @param {HTMLElement} element The button that triggered this action
+             */
+            function showChannelGui(element) {
+                activateButton(element);
+                var c = getMyChannel(element);
+                var all = document.getElementsByClassName('channelProperties');
+                for (var i = 0; i < all.length; i++) {
+                    all[i].classList.add('hidden');
+                }
+
+                document.querySelector('.channelProperties[channelId="' + c + '"]').classList.remove('hidden');
+            }
+
+            /**
+             * Finds out to which channel the calling element belongs. It works by
+             * finding the closest HTMLElement that has an attribute "channelId".
+             * @param {HTMLElement} element The element asking for its channel
+             */
+            function getMyChannel(element) {
+                var channel = element.closest('*[channelId]').getAttribute('channelId');
+                return channel;
+            }
+
+            /**
+             * Activates a button (visually, e.g. changing the color) and deactivates
+             * neighboring buttons.
+             * @param {HTMLElement} button The button to be activated
+             */
+            function activateButton(button) {
+                var grandparent = button.parentNode.parentNode;
+                var allChildren = grandparent.getElementsByTagName('*');
+                for (var i = 0; i < allChildren.length; i++) {
+                    allChildren[i].classList.remove('active');
+                }
+                button.parentNode.classList.add('active');
+            }
+
+            /**
+             * Makes the iso surface slider (for each channel) visible
+             */
+            function showIsoSlider() {
+                var sliders = document.getElementsByName('isoSurfaceSliderRow');
+                for (var i = 0; i < sliders.length; i++) sliders[i].classList.remove('hidden');
+            }
+
+            /**
+             * Makes the slider to choose a slice (cutting plane) visible
+             */
+            function showSliceSlider() {
+                document.getElementById('sliceSliderRow').classList.remove('hidden');
+            }
+
+            /**
+             * Sets the range of the slice slider. Since one slider is used for all
+             * orientations (e.g. xy cutting plane), the maximum values has to be
+             * set according to the maximum number of slices. Furthermore, the currently
+             * selected value will be clipped to the new range.
+             * The new value will be forwarded to the shader by calling oninput()
+             * @param {int} value The number that should be set as maximum
+             */
+            function setSliceSliderRange(value) {
+                document.getElementsByName('sliceSlider')[0].max = value;
+                document.getElementsByName('sliceSlider')[0].value = Math.min(value, document.getElementsByName('sliceSlider')[0].value);
+                document.getElementsByName('sliceSliderNumeric')[0].max = value;
+                document.getElementsByName('sliceSliderNumeric')[0].value = Math.min(value, document.getElementsByName('sliceSlider')[0].value);
+                document.getElementsByName('sliceSlider')[0].oninput(); // Trigger update process by a fake input
+            }
+
+            /**
+             * Hides the iso slider and slice slider
+             */
+            function hideSliceAndIsoSlider() {
+                var sliders = document.getElementsByName('isoSurfaceSliderRow');
+                for (var i = 0; i < sliders.length; i++) sliders[i].classList.add('hidden');
+                document.getElementById('sliceSliderRow').classList.add('hidden');
+            }
+
+            /**
+             * Handles the colormap selection.
+             * @param {HTMLElement} element The calling element, for visual purposes and to know which channel
+             * @param {string} mapName The name of the colormap that should be loaded.
+             */
+            function handleNonCustomColor(element, mapName) {
+                var c = getMyChannel(element);
+                setColorMap(mapName, c);
+                activateButton(element);
+                hideCustomColorButton(element);
+            }
+
+            /**
+             * Handles selection of custom color mode (e.g. shows the current color).
+             * @param {HTMLElement} element The calling button, for visual purposes and to know which channel
+             */
+            function handleCustomColor(element) {
+                enableCustomColor(getMyChannel(element));
+                activateButton(element);
+                showCustomColorButton(element);
+            }
+
+            /**
+             * Hides the button that lets the user select a custom color.
+             * @param {HTMLElement} element The calling button, for visual purposes and to know which channel
+             */
+            function hideCustomColorButton(element) {
+                element
+                    .closest('.channelProperties')
+                    .querySelector('*[name="customColorButton"]')
+                    .classList.add('hidden');
+            }
+
+            /**
+             * Shows the button that lets the user select a custom color.
+             * @param {HTMLElement} element The calling button, for visual purposes and to know which channel
+             */
+            function showCustomColorButton(element) {
+                element
+                    .closest('.channelProperties')
+                    .querySelector('*[name="customColorButton"]')
+                    .classList.remove('hidden');
+            }
+
+            /**
+             * Sets the text to the slice slider. This shows the user which slice he
+             * is currently changing (e.g. "slice x")
+             * @param {string} sliceName The string that should be displayed
+             */
+            function setSliceGuiText(sliceName) {
+                document.getElementById('sliceSliderName').innerHTML = 'slice ' + sliceName;
+            }
+
+            /**
+             * Hides the button that offers loading a new texture.
+             */
+            function hideReloadButton() {
+                document.getElementById('reloadButtonRow').classList.add('hidden');
+            }
+
+            /**
+             * Shows the button that offers loading a new texture.
+             */
+            function showReloadButton() {
+                document.getElementById('reloadButtonRow').classList.remove('hidden');
+            }
+
+            /**
+             * Every slider comes with a numeric input field. That way the user can
+             * quickly change values using the slider, or precisely setting specific
+             * values using the input field.
+             * This function handles changes of the input field. It forwards the new
+             * value to the slider. Then, the value is forwarded to the shader by
+             * calling oninput() on the slider.
+             * Note: this function is ONLY called when the (human) user changes the
+             * value, but not if the input's value is changed by the slider. This is
+             * important. If the slider would call this function as well, we would
+             * have an infinite loop jumping between the slider and its input field.
+             * @param {HTMLElement} element The input field that accompanies a slider
+             */
+            function processSliderNumericInput(element) {
+                // Check if we are independent or if we belong to a specific channel
+                var reference = element.closest('.channelProperties');
+                if (reference === null) reference = document;
+
+                // Remove last occurence of "Numeric" to get id of accompanying slider
+                var name = element.name.replace(new RegExp('Numeric$'), '');
+                reference.querySelector('input[name="' + name + '"]').value = element.value;
+                reference.querySelector('input[name="' + name + '"]').oninput();
+            }
+
+            /**
+             * Every slider comes with a numeric input field. That way the user can
+             * quickly change values using the slider, or precisely setting specific
+             * values using the input field.
+             * This function handles changes of the slider. It forwards the new
+             * value to the inputer field and to the shader
+             * The value can be forwared directly or being squared. The latter will
+             * likely only make sense for ranges [0, 1] and if the absolute value
+             * is not of high importance (because the user won't see the squared
+             * value at all). But it's nice for the contrast adjustments with only
+             * visual purposes etc.
+             * @param {HTMLElement} slider The calling slider
+             * @param {boolean} linear Should the value be forwared directly, or being squared first
+             */
+            function processSliderInput(slider, linear = true) {
+                var reference = slider.closest('.channelProperties');
+                if (reference === null) reference = document;
+
+                value = slider.value;
+                if (!linear) value = Math.pow(value, 2);
+
+                // The next one must NOT call the change event, otherwise we are looping
+                reference.querySelector('input[name="' + slider.name + 'Numeric"]').value = value;
+                return value;
+            }
+
+            /**
+             * Adds a screenshot to the collection
+             * @param {string} imageData Base64-encoded string containing jpg image data
+             */
+            function addScreenshot(imageData) {
+                var image = new Image();
+                image.src = imageData;
+                image.id = 'screenshotView' + (parseInt(document.getElementsByName('screenshotSlider')[0].max) + 1);
+                image.classList.add('screenshotView');
+                document.getElementById('screenShotViewArea').appendChild(image);
+                document.getElementById('screenShotAlbumOpener').classList.remove('none');
+                document.getElementById('screenShotDownloader').classList.remove('none');
+                increaseScreenshotRangeAndRefresh();
+            }
+
+            /**
+             * After a new screenshot was taken, the GUI must now about it in order to
+             * show correct ranges on the screenshot selection slider.
+             */
+            function increaseScreenshotRangeAndRefresh() {
+                var newValue = parseInt(document.getElementsByName('screenshotSlider')[0].max) + 1;
+
+                // In the beginning (empty), we have range 0,0. After the the first screenshot
+                // was added, we talk about range 1,... . (Alternative: setting the initial
+                // range to "-1" -- which is probably invalid for a range slider)
+                if (parseInt(document.getElementsByName('screenshotSlider')[0].min) == 0) document.getElementsByName('screenshotSlider')[0].min = 1;
+
+                document.getElementsByName('screenshotSlider')[0].max = newValue;
+                document.getElementsByName('screenshotSliderNumeric')[0].max = newValue;
+                document.getElementsByName('screenshotSlider')[0].oninput(); // Refresh the view
+            }
+
+            /**
+             * Show a certain screenshot and hide the rest
+             * @param {int} value Number of the screenshot
+             */
+            function selectScreenshot(value) {
+                var screenshots = document.getElementsByClassName('screenshotView');
+                for (var i = 0; i < screenshots.length; i++) {
+                    screenshots[i].classList.add('none');
+                }
+                document.getElementById('screenshotView' + value).classList.remove('none');
+            }
+
+            /**
+             * Creates a zip folder containing all screenshots. The folder will be
+             * downloaded directly.
+             */
+            function downloadScreenshots() {
+                var images = document.querySelectorAll('.screenshotView');
+                var zip = new JSZip();
+                var outFolder = zip.folder('images');
+
+                for (var i = 0; i < images.length; i++) {
+                    outFolder.file(i + '.jpg', images[i].src.replace('data:image/png;base64,', ''), { base64: true });
+                }
+                zip.generateAsync({ type: 'blob' }).then(function(file) {
+                    saveAs(file, 'images.zip');
+                });
+            }
+
+            /**
+             * Shows the screenshot album
+             */
+            function openScreenshotAlbum() {
+                document.getElementById('screenshotAlbum').classList.remove('none');
+            }
+
+            /**
+             * Hides the screenshot album
+             */
+            function closeScreenshotAlbum() {
+                document.getElementById('screenshotAlbum').classList.add('none');
+            }
+
+            /**
+             * Sets a value for the color selection tool and forwards this information
+             * to the shader by calling onchange()
+             */
+            function setCustomColorGui(channel, value) {
+                var element = document.querySelector('.channelProperties[channelId="' + channel + '"] input[type="color"]');
+                element.value = value;
+                element.onchange();
+            }
+
+            /**
+             * Automatically sets colors for each channel. The idea is that each channel
+             * name is just its wavelength and thus can be colorcoded. If the channel
+             * name is non-numeric or if the light is not in visible spectrum, just make
+             * it white.
+             * @param {Array} channels The channel names, which usually are just the wavelengths, e.g. ["530", "480"]
+             */
+            function setWavelengthAsCustomColor(channels) {
+                for (var key in channels) {
+                    var color = '#ffffff';
+                    if (parseInt(channels[key]) > 380 && parseInt(channels[key]) < 750) {
+                        // Careful, magic number ahead ("50"):
+                        color = getColorFromWaveLength(parseInt(channels[key]) + 50);
+                    }
+                    setCustomColorGui(key, color);
+                }
+            }
+
+            /**
+             * Show/hide the navigation
+             */
+            function toggleNavigation() {
+                document.getElementById('navigationArea').classList.toggle('none');
+                document.getElementById('navigationAreaCloseButton').classList.toggle('crossed');
+            }
+        </script>
+    </body>
+</html>

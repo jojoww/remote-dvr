@@ -1,0 +1,561 @@
+html {
+    position: relative;
+    height: 100%;
+    width: 100%;
+}
+
+.col-2 {
+	width: 16.66%;
+	position: relative;
+	display:inline-block;
+	margin: 0;
+	padding: 2px;
+}
+
+.col-4 {
+	width: 33.33%;
+	position: relative;
+	display:inline-block;
+	margin: 0;
+	padding: 2px;
+}
+.col-6 {
+	width: 50%;
+	position: relative;
+	display:inline-block;
+	margin: 0;
+	padding: 2px;
+}
+
+.col-10 {
+	width: 83.33%;
+	position: relative;
+	display:inline-block;
+	margin: 0;
+	padding: 2px;
+}
+
+.col-12 {
+	width: 100%;
+	display:inline-block;
+	position: relative;
+	margin: 0;
+	padding: 2px;
+}
+
+
+.container {
+	position: relative;
+	width: 100%;
+}
+
+.row {
+	display: flex;
+	position: relative;
+	width: 100%;
+	margin: 5px 0px;
+	padding: 0;
+}
+
+body {
+	position: relative;
+	padding: 0;
+	margin: 0;
+    height: 100%;
+    width: 100%;
+    background-color: white;
+    position: relative;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+}
+
+.active {
+	opacity: 0.7;
+}
+.btn-primary {
+	font-size: 16px;
+	background-color: #555;
+	color: white;
+	padding:0px;
+	margin: 2px;
+	cursor: pointer;
+	border: 5px solid #555;
+	border-radius: 3px;
+	line-height: 32px;
+}
+
+.btn-primary:hover {
+	opacity: 0.85;
+}
+input[type=radio] {
+	display: none;
+}
+#screenshotAlbum {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+#screenshotAlbumInner {
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid #444444;
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    width: 90%;
+    height: 80%;
+    margin-left: 5%;
+    margin-top: 5%;
+}
+
+#screenShotViewArea {
+    position: relative;
+    margin-top: 1%;
+    margin-left: auto;
+    margin-right: auto;
+    width: 95%;
+    height: 80%;
+}
+
+#screenShotNavigationArea {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+
+    width: 90%;
+    padding: 1% 5%;
+    background-color: black;
+}
+
+.screenshotView {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.none {
+    display: none;
+}
+
+input[type='number'] {
+    display: inline-block;
+}
+/* quick solution to make the pre-defined buttons grayscale */
+.grayscale {
+    -webkit-filter: grayscale(100%);
+}
+
+/* unnecessary cosmetics: remove the color selection border */
+input[type='color'] {
+    -webkit-appearance: none;
+    border: none;
+    border-radius: 3px;
+    width: 50px;
+    height: 20px;
+    margin-left: 15px;
+}
+input[type='color']::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+input[type='color']::-webkit-color-swatch {
+    border: none;
+}
+
+#mainCanvas {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: #cccccc;
+}
+
+.canvasArea {
+    background: bisque;
+    display: inline-block;
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+#reloadButtonRow {
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid #444444;
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    color: white;
+    position: fixed;
+    top: 5px;
+    right: 5px;
+    width: 250px;
+    padding: 15px;
+}
+
+.navigationAreaContent {
+    /*min-width: 550px;*/
+}
+
+
+#navigationAreaCloseButton, #screenshotAreaCloseButton {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 20px;
+    height: 20px;
+    border: 1px solid #444444;
+    color: #444444;
+    cursor: pointer;
+}
+#navigationAreaCloseButton:hover {
+    border: 1px solid rgb(153, 153, 153);
+}
+
+.crossed {
+    background: linear-gradient(to top left, rgba(153, 153, 153, 0) 0%, rgba(153, 153, 153, 0) calc(50% - 0.8px), rgba(153, 153, 153, 1) 50%, rgba(153, 153, 153, 0) calc(50% + 0.8px), rgba(153, 153, 153, 0) 100%), linear-gradient(to top right, rgba(153, 153, 153, 0) 0%, rgba(153, 153, 153, 0) calc(50% - 0.8px), rgba(153, 153, 153, 1) 50%, rgba(153, 153, 153, 0) calc(50% + 0.8px), rgba(153, 153, 153, 0) 100%);
+}
+
+#navigationArea {
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid #444444;
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    color: white;
+    position: fixed;
+    top: 5px;
+    left: 5px;
+    width: 750px;
+    /*height: 300px;*/
+    overflow-y: scroll;
+    padding: 15px;
+    resize: both;
+}
+
+
+#inset {
+    width: 10vmin;
+    height: 10vmin;
+    background-color: transparent;
+    /* or transparent; will show through only if renderer alpha: true */
+    border: 0px solid rgb(22, 105, 230);
+    /* or none; */
+    margin: 0px;
+    padding: 0px;
+    position: absolute;
+    left: 0px;
+    bottom: 0px;
+    z-index: 100;
+}
+
+
+#statusBars {
+    position: absolute;
+    right: 3vmin;
+    bottom: 2vmin;
+    width: 150px;
+    font-size:12px;
+}
+
+.statusBar {
+    width: 50%;
+    background-color: rgba(255, 255, 255, 0.3);
+    position: relative;
+    height: 20px;
+    margin-top: 5px;
+    line-height: 20px;
+}
+
+
+.statusBarBackground {
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: #cccccc;
+    height: 20px;
+}
+
+
+#insetLabel {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 2vmin;
+    background-color: transparent;
+    /* or transparent; will show through only if renderer alpha: true */
+    border: 0px solid rgb(22, 105, 230);
+    /* or none; */
+    margin: 0px;
+    padding: 0px;
+    position: absolute;
+    left: 3vmin;
+    bottom: 1vmin;
+    z-index: 100;
+}
+
+#insetLabelRed {
+    color: #ff0022;
+}
+
+#insetLabelGreen {
+    color: #00c83c;
+}
+
+#insetLabelBlue {
+    color: #0073f9;
+}
+
+
+
+.channelName {
+    color: #aaaaaa;
+}
+
+input[type='number'] {
+    height: 20px;
+    width: 60px;
+    font-size: 10px;
+    border: 0px;
+    background-color: #444444;
+    color: #cccccc;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.additionalTopSpacing {
+    margin-top: 4px;
+}
+
+.largeTopSpacing {
+    margin-top: 25px;
+}
+
+/* width */
+::-webkit-scrollbar {
+    width: 16px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 6px;
+    transition: background-color 0.5s;
+    cursor: pointer;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+    background-color: #888;
+}
+
+::-webkit-resizer {
+    border: 1px solid #666666;
+    background: #555;
+    cursor: pointer;
+}
+
+::-webkit-resizer:hover {
+    background: #888;
+}
+
+/* Below: all the stylings for range sliders (copied from an online tool); 
+   PLUS: I had to add transparant background manually!  */
+input[type='range'] {
+    height: 22px;
+    -webkit-appearance: none;
+    margin: 0;
+    width: 100%;
+    background-color: transparent !important;
+    display: inline-flex;
+}
+input[type='range']:focus {
+    outline: none;
+}
+input[type='range']::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 6px;
+    cursor: pointer;
+    animate: 0.2s;
+    box-shadow: 0px 0px 0px #000000;
+    background: #9c9c9c;
+    border-radius: 5px;
+    border: 0px solid #000000;
+}
+input[type='range']::-webkit-slider-thumb {
+    box-shadow: 0px 0px 0px #000000;
+    border: 0px solid #000000;
+    height: 16px;
+    width: 25px;
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -5px;
+}
+input[type='range']:focus::-webkit-slider-runnable-track {
+    background: #9c9c9c;
+}
+input[type='range']::-moz-range-track {
+    width: 100%;
+    height: 6px;
+    cursor: pointer;
+    animate: 0.2s;
+    box-shadow: 0px 0px 0px #000000;
+    background: #9c9c9c;
+    border-radius: 5px;
+    border: 0px solid #000000;
+}
+input[type='range']::-moz-range-thumb {
+    box-shadow: 0px 0px 0px #000000;
+    border: 0px solid #000000;
+    height: 16px;
+    width: 25px;
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+}
+input[type='range']::-ms-track {
+    width: 100%;
+    height: 6px;
+    cursor: pointer;
+    animate: 0.2s;
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+}
+input[type='range']::-ms-fill-lower {
+    background: #9c9c9c;
+    border: 0px solid #000000;
+    border-radius: 10px;
+    box-shadow: 0px 0px 0px #000000;
+}
+input[type='range']::-ms-fill-upper {
+    background: #9c9c9c;
+    border: 0px solid #000000;
+    border-radius: 10px;
+    box-shadow: 0px 0px 0px #000000;
+}
+input[type='range']::-ms-thumb {
+    margin-top: 1px;
+    box-shadow: 0px 0px 0px #000000;
+    border: 0px solid #000000;
+    height: 16px;
+    width: 25px;
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+}
+input[type='range']:focus::-ms-fill-lower {
+    background: #9c9c9c;
+}
+input[type='range']:focus::-ms-fill-upper {
+    background: #9c9c9c;
+}
+
+/*
+input[type=range] {
+	position: relative;	
+	height: 30px;
+	-webkit-appearance: none;
+	margin: 10px 0;
+	width: 350px !important;
+	background-color: transparent !important;
+}
+
+input[type=range]:focus {
+	outline: none;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+	width: 100%;
+	height: 10px;
+	cursor: pointer;
+	animate: 0.2s;
+	box-shadow: 0px 0px 0px #000000;
+	background: #C7C7C7;
+	border-radius: 5px;
+	border: 0px solid #000000;
+}
+
+input[type=range]::-webkit-slider-thumb {
+	box-shadow: 0px 0px 0px #000000;
+	border: 0px solid #000000;
+	height: 24px;
+	width: 24px;
+	border-radius: 12px;
+	background: #40BF21;
+	cursor: pointer;
+	-webkit-appearance: none;
+	margin-top: -7px;
+}
+
+input[type=range]:focus::-webkit-slider-runnable-track {
+	background: #C7C7C7;
+}
+
+input[type=range]::-moz-range-track {
+	width: 100%;
+	height: 10px;
+	cursor: pointer;
+	animate: 0.2s;
+	box-shadow: 0px 0px 0px #000000;
+	background: #C7C7C7;
+	border-radius: 5px;
+	border: 0px solid #000000;
+}
+
+input[type=range]::-moz-range-thumb {
+	box-shadow: 0px 0px 0px #000000;
+	border: 0px solid #000000;
+	height: 24px;
+	width: 24px;
+	border-radius: 12px;
+	background: #40BF21;
+	cursor: pointer;
+}
+
+input[type=range]::-ms-track {
+	width: 100%;
+	height: 10px;
+	cursor: pointer;
+	animate: 0.2s;
+	background: transparent;
+	border-color: transparent;
+	color: transparent;
+}
+
+input[type=range]::-ms-fill-lower {
+	background: #C7C7C7;
+	border: 0px solid #000000;
+	border-radius: 10px;
+	box-shadow: 0px 0px 0px #000000;
+}
+
+input[type=range]::-ms-fill-upper {
+	background: #C7C7C7;
+	border: 0px solid #000000;
+	border-radius: 10px;
+	box-shadow: 0px 0px 0px #000000;
+}
+
+input[type=range]::-ms-thumb {
+	margin-top: 1px;
+	box-shadow: 0px 0px 0px #000000;
+	border: 0px solid #000000;
+	height: 24px;
+	width: 24px;
+	border-radius: 12px;
+	background: #40BF21;
+	cursor: pointer;
+}
+
+input[type=range]:focus::-ms-fill-lower {
+	background: #C7C7C7;
+}
+
+input[type=range]:focus::-ms-fill-upper {
+	background: #C7C7C7;
+}
+*/
