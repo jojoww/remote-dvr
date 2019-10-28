@@ -44,7 +44,7 @@
                             <input type="range" min="0" max="1000" value="0.0" step="0.1" class="slider" name="sliceSlider" oninput="javascript:setSlice(processSliderInput(this));" />
                         </div>
                     </div>
-                    <div class="row" id="cameraRotationSlider">
+                    <div class="row" id="cameraRotationSliderRow">
                         <div class="col-2">Spin cam (y):</div>
                         <div class="col-sm">
                             <input type="number" min="0" max="360" value="0.0" step="0.1" class="form-control-sm" name="cameraSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
@@ -187,10 +187,7 @@
         </div>
 
         <div id="statusBars">
-            <div id="statusBar0" class="statusBarBackground none"><div id="statusBarInner0" class="statusBar">&nbsp;</div></div>
-            <div id="statusBar1" class="statusBarBackground none"><div id="statusBarInner1" class="statusBar">&nbsp;</div></div>
-            <div id="statusBar2" class="statusBarBackground none"><div id="statusBarInner2" class="statusBar">&nbsp;</div></div>
-            <div id="statusBar3" class="statusBarBackground none"><div id="statusBarInner3" class="statusBar">&nbsp;</div></div>
+
         </div>
 
         <script type="module">
@@ -212,7 +209,6 @@
             var samplingRate = url.searchParams.get('samplingRate');
             var useByte = url.searchParams.get('useByte') == 1 ? true : false;
             var downscale = url.searchParams.get('downscale');
-            var padding = 0;
             var useSampler3D = webglMode == 2; // if webgl2, use sampler3d
             console.log("Sampler 3D: ", useSampler3D)
             
@@ -229,17 +225,26 @@
             var sampler2DGridX = 1;
             var sampler2DGridY = 1;
 
+            var images; // Holds metadata for all images. This is basically a copy of the config JSON
+            var smallestOffset = [0, 0, 0];
             var numChannels = 1; // The number of channels provided by the data, in [1,4].
+            var numImages = 1;
+            var numImagesPerChannel = {}
+            var channelToIndex = {} // has a numeric value for each channel name
             var numChannelsGPU = 1; // Like above, but considers limits of WebGL. E.g. there can't be 2 - we would use 3 and fill up with zeros.
             var dataChannels = null; // Array of the channel names (which is their respective wavelength)
-            var loadedDataVersion = null; // Array of timestamps of currently loaded (=visible) data
-            var loadedDataDimension = [0, 0, 0]; // Number of elements per axis
+            var loadedImageVersions = []; // Array of timestamps of currently loaded (=visible) data
             var loadedDataScale = [1, 1, 1]; // Voxel spacing at x, y, z
 
-            var latestDataVersion; // Array of timestamps of latest available data (note necessarily loaded)
+            var latestImageVersions = []; // Array of timestamps of latest available data (note necessarily loaded)
             var latestDataUrl; // Array of latest available data URLs
-            var dataDimension = [0, 0, 0]; // Number of elements per axis
-            var dataScale = [1, 1, 1]; // Voxel spacing for x, y, z dimensions
+            var worldDimensions = [0, 0, 0]; // Number of elements per axis
+            var imageDimensions = [] // For each image: an array with 3 numbers for respective image size
+            var imageOffsets = [] // For each image: an array with 3 numbers for respective image offset
+            var imageFlips = [] // For each image: an array with 3 booleans for respective axes' flip
+            var imageUrls = [] // For each image: string with url
+            var imageChannels = [] // For each image: channel it belongs to
+            var worldScale = [1, 1, 1]; // Voxel spacing for x, y, z dimensions
             var noTextureLoaded = true; // Just to know if we have successfully loaded anything
             var autoScreenshot = true; // If true, a screenshot is taken just before a new texture is loaded
             var autoLoad = false; // If true, new datasets are loaded automatically
@@ -339,51 +344,73 @@
                 fetchJSONFile(
                     configUrl + '?' + Math.random(),
                     function(data) {
-                        numChannels = Object.keys(data.timestamp).length;
-                        console.log('Checked the config file');
+                        if (loadedImageVersions.length === 0) {
+                            numImages = data.images.length;
+                            numChannels = 0;
+                            var largestDim = [0, 0, 0];
+                            smallestOffset = [99999, 99999, 99999]
+                            var largestOffset = [-99999, -99999, -99999]
+                            var imageScale = data.pixelsize;
+                            
+                            for(var i = 0; i < data.images.length; i++) {
+                                var img = data.images[i]; // less typing...
+                                var wavelength = img.wavelength
+                                // First, remember number of images per channel
+                                if(numImagesPerChannel[wavelength] === undefined) {
+                                    imageChannels.push(wavelength)
+                                    numImagesPerChannel[wavelength] = 1;
+                                    channelToIndex[wavelength] = imageChannels.length - 1
+                                    numChannels += 1;
+                                } else {
+                                    numImagesPerChannel[wavelength] +=1;
+                                }
+                                smallestOffset = [Math.min(img.offset[0], smallestOffset[0]), 
+                                    Math.min(img.offset[1], smallestOffset[1]), 
+                                    Math.min(img.offset[2], smallestOffset[2])]
+                                largestOffset = [Math.max(img.offset[0], largestOffset[0]), 
+                                    Math.max(img.offset[1], largestOffset[1]), 
+                                    Math.max(img.offset[2], largestOffset[2])]
 
-                        // If null, this is the very first time we check for data. Create the meta data.
-                        if (loadedDataVersion === null) {
-                            // Note, the downscale parameter is usually 1. It could be used to only every n^th
-                            // voxel along x and y. Furthermore, we normalize the data scale in a way that the
-                            // smallest dimension is 1.0. This is necessery in order to avoid oversampling
-                            // during the volume rendering (the volume rendering will perform steps in data
-                            // space, which means that e.g. a dataScale > 1 leads to more than one step per
-                            // actual data point).
-                            dataDimension = [data.xsize / downscale, data.ysize / downscale, data.zsize];
-                            var minScale = Math.min(data.xpixelsize, data.ypixelsize, data.zpixelsize);
-                            dataScale = [(data.xpixelsize * downscale) / minScale, (data.ypixelsize * downscale) / minScale, data.zpixelsize / minScale];
-
-                            dataChannels = Array();
-                            loadedDataVersion = Array();
-                            latestDataVersion = Array();
-                            latestDataUrl = Array();
-
-                            for (var key in data.timestamp) {
-                                dataChannels.push(key);
-                                loadedDataVersion[key] = '';
-                                latestDataVersion[key] = '';
-                                latestDataUrl[key] = '';
+                                largestDim = [  Math.max(img.datasize[0], largestDim[0]), 
+                                                Math.max(img.datasize[1], largestDim[1]), 
+                                                Math.max(img.datasize[2], largestDim[2])]
+                                // Remember association between im
                             }
+                            largestOffset[0] -= smallestOffset[0];
+                            largestOffset[1] -= smallestOffset[1];
+                            largestOffset[2] -= smallestOffset[2];
 
-                            console.log(dataChannels);
+                            // We add the largest offset of each dimension; note, so far offsets are in microns
+                            largestDim[0] += Math.ceil(largestOffset[0] / imageScale[0]);
+                            largestDim[1] += Math.ceil(largestOffset[1] / imageScale[1]);
+                            largestDim[2] += Math.ceil(largestOffset[2] / imageScale[2]);
+
+                            // Just create some array structures. We fill in proper values later
+                            for(var i = 0; i < numImages; i++) {
+                                imageDimensions.push([0,0,0]);
+                                imageOffsets.push([0, 0, 0])
+                                imageFlips.push([false, false, false])
+                                loadedImageVersions.push("")
+                                latestImageVersions.push("")
+                            }
+                            worldDimensions = largestDim;
                             initTexture();
                         }
 
-                        for (var i = 0; i < dataChannels.length; i++) {
-                            var c = dataChannels[i];
-                            if (data.timestamp[c] !== latestDataVersion[c]) {
-                                latestDataUrl[c] = data.filelocation[c];
-                                latestDataVersion[c] = data.timestamp[c];
-                                console.log('Channel ', c, 'has changed and needs an update');
-                                if (autoLoad || loadedDataVersion[c] == '') {
+                        console.log('Checked the config file');
+
+                        images = data.images;
+
+                        for(var i = 0; i < images.length; i++) {
+                            if(loadedImageVersions[i] !== images[i].timestamp) {
+                                console.log('Something has changed. Update or show button');
+                                if (autoLoad || loadedImageVersions[i] == '') {
                                     loadTexture();
                                 } else {
                                     showReloadButton();
                                 }
                             }
                         }
-
                         // Check again in 3 seconds
                         window.setTimeout(observeExternalDataSource, 3000);
                     },
@@ -402,12 +429,12 @@
              * We create the initial texture. We can do this once we know tha size of the data.
              */
             function initTexture() {
-                var x = dataDimension[0] + 2 * padding;
-                var y = dataDimension[1] + 2 * padding;
-                var z = dataDimension[2] + 2 * padding;
-                var xScale = dataScale[0];
-                var yScale = dataScale[1];
-                var zScale = dataScale[2];
+                var x = parseInt(worldDimensions[0] / downscale);
+                var y = parseInt(worldDimensions[1] / downscale);
+                var z = worldDimensions[2];
+                var xScale = worldScale[0] * downscale;
+                var yScale = worldScale[1] * downscale;
+                var zScale = worldScale[2];
 
 
 
@@ -429,9 +456,9 @@
                 var numTotal = x * y * z * numChannelsGPU;
                 if(!useSampler3D) {
                     var maxTexSize = renderer.capabilities.maxTextureSize;
-                    sampler2DGridX = Math.floor(maxTexSize / (2 * padding + x));
-                    sampler2DGridY = Math.ceil((2 * padding + z) / sampler2DGridX);
-                    numTotal = sampler2DGridX * (2 * padding + x) * sampler2DGridY * (2 * padding + y) * numChannelsGPU;
+                    sampler2DGridX = Math.floor(maxTexSize / (x));
+                    sampler2DGridY = Math.ceil((z) / sampler2DGridX);
+                    numTotal = sampler2DGridX * (x) * sampler2DGridY * (y) * numChannelsGPU;
                     console.log("Total number of voxels:", numTotal)
                 }
 
@@ -505,7 +532,7 @@
                 material = new THREE.ShaderMaterial({
                     uniforms: uniforms,
                     vertexShader: shader.vertexShader,
-                    fragmentShader: shader.getFragmentShader(useSampler3D, dataDimension[2]),
+                    fragmentShader: shader.getFragmentShader(useSampler3D, worldDimensions[2]),
                     side: THREE.BackSide // The volume shader uses the backface as its "reference point"
                 });
 
@@ -519,7 +546,8 @@
                 controls.update();
                 scene.add(mesh);
                 render();
-                addChannelsToGui(dataChannels);
+                addChannelsToGui(imageChannels);
+                addLoadingBarsToGui(numImages);
             }
 
             /**
@@ -530,26 +558,10 @@
              * @param {int} z Z coordinate in 3D texture
              */
             function moveTo2DSamplerPosition(x, y, z) {
-                var offsetX = ((z) % sampler2DGridX) * (2 * padding + dataDimension[0]);
-                var offsetY = Math.floor(z / sampler2DGridX) * (2 * padding + dataDimension[1]);
+                var offsetX = ((z) % sampler2DGridX) * parseInt(worldDimensions[0] / downscale);
+                var offsetY = Math.floor(z / sampler2DGridX) * parseInt(worldDimensions[1] / downscale);
                 //console.log("Move ", x, y, z, "to", x + offsetX, y + offsetY)
                 return[ x + offsetX, y + offsetY]
-            }
-
-
-            // Some functions just being used to communicate the right channel to the loading process.
-            // TODO: Ahhhh, sorry, not nice. Maybe there is a smarter way?
-            function handleTextureData0(data) {
-                handleTextureData(data, 0);
-            }
-            function handleTextureData1(data) {
-                handleTextureData(data, 1);
-            }
-            function handleTextureData2(data) {
-                handleTextureData(data, 2);
-            }
-            function handleTextureData3(data) {
-                handleTextureData(data, 3);
             }
 
 
@@ -561,9 +573,17 @@
              * @param {bytes} data The raw uint16 byte image data
              * @param {int} channel The channel the texture should be loaded to
              */
-            function handleTextureData(data, channel) {
-                console.log('Received new texture data for channel', channel);
-                setLoadingStatus(channel, 95, "Create texture");
+            function handleTextureData(data) {
+                console.log("Scope:", this)
+                var index = this.index;
+                var channel = this.channel;
+                var img = this.images[index];
+                var worldDimensions = this.worldDimensions;
+                var downscale = this.downscale;
+                console.log('Received new texture data for image',index ,'channel', img.wavelength);
+                console.log("Handle image", img)
+                this.setLoadingStatus(index, 95, "Create texture");
+                
                 // The data always arrives as Uint16
                 var array = new Uint16Array(data);
 
@@ -572,6 +592,8 @@
                 for (var i = 0; i < array.length; i++) {
                     maxVal = Math.max(array[i], maxVal);
                 }
+                // But limit the normalization to a factor of a maximum of 256. Otherwise "near black"
+                // (empty) images would become super bright.
                 maxVal = Math.max(maxVal, 255.);
                 maxVal = parseFloat(maxVal);
                 console.log("Normalizing to ", maxVal)
@@ -580,106 +602,91 @@
                 var val = 0;
                 console.time('Timer for updating texture:');
 
-                var offsetX = 0;
-                var offsetY = 0;
-                var offsetZ = 0;
-                var flipX = false;
-                var flipY = false;
-                var flipZ = false;
-
+                var offsetX = Math.round((img.offset[0] - smallestOffset[0]) / worldScale[0]);
+                var offsetY = Math.round((img.offset[1] - smallestOffset[1]) / worldScale[1]);
+                var offsetZ = Math.round((img.offset[2] - smallestOffset[2]) / worldScale[2]);
+                var flipX = img.flipping[0];
+                var flipY = img.flipping[1];
+                var flipZ = img.flipping[2];
+            
                 // The data copy process. The last case is the easiest one. I kept in separately in order
                 // to copy data at highest speed.
-                if(padding > 0 || offsetX !== 0 || offsetY !== 0 || offsetZ !== 0 || flipX || flipY || flipZ || !useSampler3D) {
-                    console.log("Copy data and potentially rotate, flip, or add padding.")
-                    var numX = dataDimension[0] + 2 * padding;
-                    var numXOrig = dataDimension[0] * downscale;
-                    var numXY = (dataDimension[1] + 2 * padding) * numX;
-                    var numXYOrig = dataDimension[1] * downscale * numXOrig;
-                    if(!useSampler3D) { 
-                        numX = sampler2DGridX * numX;
-                        numXY = (dataDimension[1] + 2 * padding) * sampler2DGridY * numX // not needed in that case
-                    }
-                    var toX, toY, toZ;
-                    // This loop runs in data (origin) space, hence without padding
-                    // Note: it is way faster do let x be fastest changing index! 
-                    for (var z = 0; z < dataDimension[2]; z++) {
-                        for (var y = 0; y < dataDimension[1]; y++) {
-                            for (var x = 0; x < dataDimension[0]; x++) {
-                                // Reading the texture is easy
-                                val = parseFloat(array[x * downscale + y * downscale * numXOrig + z * numXYOrig]) / maxVal;
-                                if (useByte) {
-                                    val = parseInt(val * 255);
-                                }
-                                // We flip first, still in data space, without offsets or padding
-                                if(flipX) toX = dataDimension[0] - toX - 1; 
-                                if(flipY) toY = dataDimension[1] - toY - 1;
-                                if(flipZ) toZ = dataDimension[2] - toZ - 1;
-
-                                // Now we move the target position around
-                                toX = (x + padding + offsetX);
-                                toY = (y + padding + offsetY);
-                                toZ = (z + padding + offsetZ);
-
-                                // Since we are in texture space now, we can check against texture boundaries
-                                if(toX < 0 || toY < 0 || toZ < 0 || 
-                                   toX >= dataDimension[0] + 2 * padding || 
-                                   toY >= dataDimension[1] + 2 * padding || 
-                                   toZ >= dataDimension[2] + 2 * padding)
-                                {
-                                    continue; // Out of bounds
-                                }
-
-                                // In case we use 2D sampler, the position must be changed. In this mode, we
-                                // don't have a third dimension but we store the images in a 2D grid (e.g. 
-                                // we have one big texture that hold like 32 * 12 slices in a grid layout)
-                                if(!useSampler3D) {
-                                    var xy2D = moveTo2DSamplerPosition(toX, toY, toZ);
-                                    toX = xy2D[0];
-                                    toY = xy2D[1];
-                                    toZ = 0;
-                                }
-                                texture.image.data[(toX + toY * numX + toZ * numXY) * numChannelsGPU + channel] = val;
-                            }
-                        }
-                    }
+                //if(offsetX !== 0 || offsetY !== 0 || offsetZ !== 0 || flipX || flipY || flipZ || !useSampler3D) {
+                console.log("Handle images. Offset: ", offsetX, offsetY, offsetZ, ", flips:", flipX, flipY, flipZ)
+                var numX = parseInt(worldDimensions[0]  / downscale);
+                var numXOrig = img.datasize[0];
+                var numXY = parseInt(worldDimensions[1] / downscale) * numX;
+                var numXYOrig = img.datasize[1] * numXOrig;
+                if(!this.useSampler3D) { 
+                    numX = parseInt(this.sampler2DGridX * worldDimensions[0]  / downscale);
+                    numXY = parseInt(worldDimensions[1] * this.sampler2DGridY * numX  / downscale); // not needed in that case
                 }
-                else {
-                    // A bit more complicated, we only copy every n^th byte to reduce texture size. I think this is
-                    // probably never used because the performance benefit is rather non -existing
-                    if (downscale > 1) {
-                        console.log("Copy data and downscale by", downscale);
-                        var numX = dataDimension[0];
-                        var numXOrig = dataDimension[0] * downscale;
-                        var numXY = dataDimension[1] * numX;
-                        var numXYOrig = dataDimension[1] * downscale * numXOrig;
-                        for (var z = 0; z < dataDimension[2]; z++) {
-                            for (var y = 0; y < dataDimension[1]; y++) {
-                                for (var x = 0; x < dataDimension[0]; x++) {
-                                    val = parseFloat(array[x * downscale + y * downscale * numXOrig + z * numXYOrig]) / maxVal;
-                                    if (useByte) {
-                                        val = parseInt(val * 255);
-                                    }
-                                    texture.image.data[(x + y * numX + z * numXY) * numChannelsGPU + channel] = val;
+                var toX, toY, toZ;
+                // This loop runs in data (origin) space and puts the value to the respective position in the world
+                // Note: it is way faster do let x be fastest changing index! 
+                for (var z = 0; z < img.datasize[2]; z++) {
+                    for (var y = 0; y < img.datasize[1]; y++) {
+                        for (var x = 0; x < img.datasize[0]; x++) {
+                            // In case we allow downsampling, skip everythin except every n^th
+                            if(downscale > 1) {
+                                if(x % downscale !== 0 || y % downscale !== 0 ) {
+                                    continue; 
                                 }
                             }
-                        }
-                    } else {
-                        console.log("Copy data in regular and fast approach")
-                        for (var i = 0; i < texture.image.data.length; i += downscale * numChannelsGPU) {
-                            val = parseFloat(array[i / numChannelsGPU]) / maxVal;
+
+                            // Reading the texture is easy
+                            val = parseFloat(array[x + y * numXOrig + z * numXYOrig]) / maxVal;
                             if (useByte) {
                                 val = parseInt(val * 255);
                             }
-                            texture.image.data[i + channel] = val;
+                            toX = x;
+                            toY = y;
+                            toZ = z;
+                            // We flip first, still in data space, without offsets
+                            if(flipX) toX = img.datasize[0] - toX - 1; 
+                            if(flipY) toY = img.datasize[1] - toY - 1;
+                            if(flipZ) toZ = img.datasize[2] - toZ - 1;
+
+                            // Now we move the target position around
+                            toX = (toX + offsetX);
+                            toY = (toY + offsetY);
+                            toZ = (toZ + offsetZ);
+
+                            // Since we are in texture space now, we can check against texture boundaries
+                            if(toX < 0 || toY < 0 || toZ < 0 || 
+                                toX >= worldDimensions[0] || 
+                                toY >= worldDimensions[1] || 
+                                toZ >= worldDimensions[2])
+                            {
+                                continue; // Out of bounds
+                            }
+
+                            // Just from now on we move to scaled space
+                            if(downscale > 1) {
+                                toX = parseInt(toX / downscale)
+                                toY = parseInt(toY / downscale)
+                            }
+
+                            // In case we use 2D sampler, the position must be changed. In this mode, we
+                            // don't have a third dimension but we store the images in a 2D grid (e.g. 
+                            // we have one big texture that hold like 32 * 12 slices in a grid layout)
+                            if(!this.useSampler3D) {
+                                var xy2D = this.moveTo2DSamplerPosition(toX, toY, toZ);
+                                toX = xy2D[0];
+                                toY = xy2D[1];
+                                toZ = 0;
+                            }
+                            this.texture.image.data[(toX + toY * numX + toZ * numXY) * numChannelsGPU + channel] = val;
                         }
                     }
                 }
+                
                 console.timeEnd('Timer for updating texture:');
 
                 console.log('Updated texture:', texture);
-                loadingFinished(channel);
-                texture.needsUpdate = true;
-                render();
+                this.loadingFinished(index);
+                this.texture.needsUpdate = true;
+                this.render();
             }
 
             /**
@@ -688,10 +695,9 @@
              */
             function checkIfShowReloadButton() {
                 var hide = true;
-                for (var i = 0; i < dataChannels.length; i++) {
-                    var c = dataChannels[i];
-                    if (loadedDataVersion[c] !== latestDataVersion[c]) {
-                        console.log('Dimension ', c, 'is not the most recent version');
+                for (var i = 0; i < images.length; i++) {
+                    if (loadedImageVersions[i] !== images[i].timestamp) {
+                        console.log('Image ', i, 'is not the most recent version');
                         hide = false;
                     }
                 }
@@ -705,37 +711,38 @@
              * automatically or manually be the reload button (depends on the settings).
              */
             function loadTexture() {
-                for (var i = 0; i < dataChannels.length; i++) {
-                    var c = dataChannels[i];
-                    if (loadedDataVersion[c] !== latestDataVersion[c]) {
-                        console.log('Reloading channel', c);
+                for (var i = 0; i < images.length; i++) {
+                    if (loadedImageVersions[i] !== images[i].timestamp) {
+                        console.log('Reloading image', i,", which belongs to channel", images[i].wavelength);
                         if (autoScreenshot) takeScreenshot();
-                        loadedDataVersion[c] = latestDataVersion[c];
+                        loadedImageVersions[i] = images[i].timestamp;
                         var loader = new THREE.FileLoader();
                         loader.setResponseType('arraybuffer');
                         // Note, we replace a sharp by the user-defined port
-                        var url = latestDataUrl[c].replace('#', dataUrl) + '?' + Math.random(); // Random string to prevent caching
+                        var url = images[i].url.replace('#', dataUrl) + '?' + Math.random(); // Random string to prevent caching
+
+                        var parameters = {}
+                        parameters.images = images; 
+                        parameters.index = i;
+                        parameters.texture = texture;
+                        parameters.worldDimensions = worldDimensions;
+                        parameters.texture = texture;
+                        parameters.sampler2DGridX = sampler2DGridX;
+                        parameters.sampler2DGridY = sampler2DGridY;
+                        parameters.moveTo2DSamplerPosition = moveTo2DSamplerPosition;
+                        parameters.render = render;
+                        parameters.loadingFinished = loadingFinished;
+                        parameters.channel = channelToIndex[images[i].wavelength]
+                        parameters.setLoadingStatus = setLoadingStatus;
+                        parameters.downscale = downscale;
+                        loader.load(url, handleTextureData.bind(parameters), loadingStatus.bind(parameters));
 
                         // Hmmmm. since we have up to four different textures, we have four
                         // different processing functions. Eventually, it will all be performed
                         // by the same function, but for now I don't know how to properly pass
                         // the intended channel. (TODO?)
-                        if (i == 0)
-                            loader.load(url, function(data) {
-                                handleTextureData0(data);
-                            }, loadingStatus0);
-                        if (i == 1)
-                            loader.load(url, function(data) {
-                                handleTextureData1(data);
-                            }, loadingStatus1);
-                        if (i == 2)
-                            loader.load(url, function(data) {
-                                handleTextureData2(data);
-                            }, loadingStatus2);
-                        if (i == 3)
-                            loader.load(url, function(data) {
-                                handleTextureData3(data);
-                            }, loadingStatus3);
+                        continue;
+       
                     }
                 }
 
@@ -747,11 +754,6 @@
                 checkIfShowReloadButton();
             }
 
-            function loadingStatus0(value) {loadingStatus(value, 0);}
-            function loadingStatus1(value) {loadingStatus(value, 1);}
-            function loadingStatus2(value) {loadingStatus(value, 2);}
-            function loadingStatus3(value) {loadingStatus(value, 3);}
-
             /**
              * Sets the loading bars according to the status. However, the function stops at
              * 95% because afterwards we have to update the texture which takes some time and
@@ -760,23 +762,11 @@
              * @param {Object} value The THREE.js progress object
              * @param {int} channel The channel for which we should update the status bar
              */
-            function loadingStatus(value, channel) {
-                console.log("Loading", value)
+             function loadingStatus(value) {
                 if ( value.lengthComputable ) {
                     var percentage = Math.round(95 * value.loaded / value.total); 
-                    setLoadingStatus(channel, percentage, "Loading");
+                    this.setLoadingStatus(this.index, percentage, "Loading");
                 }
-                document.getElementById("statusBar" + channel).classList.remove("none")
-            }
-
-            function setLoadingStatus(channel, percentage, text) {
-                document.getElementById("statusBarInner" + channel).style.width = percentage + '%';
-                // Adding a space before, just for the optics (I know, this is the lazy way...)
-                document.getElementById("statusBarInner" + channel).innerHTML = "&nbsp;" + percentage + '% ' + text;
-            }
-
-            function loadingFinished(channel) {
-                document.getElementById("statusBar" + channel).classList.add("none")
             }
 
             /**
@@ -802,7 +792,6 @@
              */
             function render() {
                 renderer.render(scene, camera);
-                console.log(camera);
                 camera2.position.copy(camera.position);
                 camera2.position.sub(controls.target);
                 camera2.position.setLength(2);
@@ -894,6 +883,8 @@
              * Enable maximum intensity projection.
              */
             function enableMIP() {
+                showRotationCamSlider();
+
                 // Enable rotation and pan (could have been disabled by slice view)
                 controls.enableRotate = true;
                 controls.enablePan = true;
@@ -907,6 +898,7 @@
              * Enable average projection.
              */
             function enableAverage() {
+                showRotationCamSlider();
                 // Enable rotation and pan (could have been disabled by slice view)
                 controls.enableRotate = true;
                 controls.enablePan = true;
@@ -920,6 +912,8 @@
              * Enables the iso surface view in the shader.
              */
             function enableIso() {
+                showRotationCamSlider();
+
                 hideSliceAndIsoSlider();
                 // Enable rotation and pan (could have been disabled by slice view)
                 controls.enableRotate = true;
@@ -966,13 +960,6 @@
                     controls.target.z )
                 newPos.add(center)
                 camera.position.set(newPos.x, newPos.y, newPos.z);
-                console.log(camera.position)
-                //console.log(camera.lookAt())
-                //camera.position.setY(controls.target.y);
-                /*
-                camera.lookAt( new THREE.Vector3(padding + dataDimension[0] / 2, 
-                                                 padding + dataDimension[1] / 2, 
-                                                 padding + dataDimension[2] / 2) );*/
                 camera.lookAt( new THREE.Vector3(controls.target.x, 
                                                 controls.target.y, 
                                                 controls.target.z ) );
@@ -1058,6 +1045,7 @@
             function enableSlice(type) {
                 hideSliceAndIsoSlider();
                 showSliceSlider();
+                hideRotationCamSlider();
 
                 // Disable rotation and pan
                 controls.enableRotate = false;
@@ -1066,18 +1054,18 @@
 
                 // TODO: the quaternions are not really justified so far. Better solution?
                 if (type == 'x') {
-                    setSliceSliderRange(dataDimension[0]);
+                    setSliceSliderRange(worldDimensions[0]);
                     setCamera(90.);
                     /*
                     camera.position.set(5000, controls.target.y, controls.target.z);
                     camera.quaternion.set(0.5, 0.5, 0.5, 0.5);*/
                 } else if (type == 'y') {
-                    setSliceSliderRange(dataDimension[1]);   
+                    setSliceSliderRange(worldDimensions[1]);   
                     camera.position.set(controls.target.x, 5000, controls.target.z);
                     camera.quaternion.set(0, 1 / Math.sqrt(2), 1 / Math.sqrt(2), 0);
                     
                 } else {
-                    setSliceSliderRange(dataDimension[2]);
+                    setSliceSliderRange(worldDimensions[2]);
                     setCamera(0);
                     /*
                     camera.position.set(controls.target.x, controls.target.y, 5000);
@@ -1104,13 +1092,29 @@
             // with THREE.js directly but rather call the "public" function that
             // are defined in the module above.
 
+            function addLoadingBarsToGui(numImages) {
+                var father = document.getElementById("statusBars");
+                for(var i = 0; i < numImages; i++) {
+                    var barOuter = document.createElement("div");
+                    barOuter.id = "statusBar" + i;
+                    barOuter.classList.add("none");
+                    barOuter.classList.add("statusBarBackground");
+                    var barInner = document.createElement("div")
+                    barInner.id="statusBarInner" + i;
+                    barInner.classList.add("statusBar");
+                    barInner.innerHTML = "&nbsp;";
+                    barOuter.appendChild(barInner);
+                    father.appendChild(barOuter);
+                }
+            }
+
             /**
              * Rebuilds the parts of the GUI that hold channel-related elements.
              * @param {array} channels An array containing the channel names, e.g. ["530", "420"]
              */
             function addChannelsToGui(channels) {
+                console.log("Add channels to GUI:", channels)
                 var numChannels = channels.length;
-
                 // Basically, we have to do two things: copying all settings/sliders,
                 // and adding a button to open the respective controls.
                 // Note, the insertion points just point to the last-added element in
@@ -1457,6 +1461,27 @@
                 document.getElementById('navigationArea').classList.toggle('none');
                 document.getElementById('navigationAreaCloseButton').classList.toggle('crossed');
             }
+
+            
+            function setLoadingStatus(index, percentage, text) {
+                document.getElementById("statusBar" + index).classList.remove("none")
+                document.getElementById("statusBarInner" + index).style.width = percentage + '%';
+                // Adding a space before, just for the optics (I know, this is the lazy way...)
+                document.getElementById("statusBarInner" + index).innerHTML = "&nbsp;" + percentage + '% ' + text;
+            }
+
+            function loadingFinished(index) {
+                document.getElementById("statusBar" + index).classList.add("none")
+            }
+
+            function showRotationCamSlider() {
+                document.getElementById("cameraRotationSliderRow").classList.remove("none")
+            }
+
+            function hideRotationCamSlider() {
+                document.getElementById("cameraRotationSliderRow").classList.add("none")
+            }
+
         </script>
     </body>
 </html>

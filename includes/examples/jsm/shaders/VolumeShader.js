@@ -655,8 +655,8 @@ var VolumeRenderShader1 = {
 		}
 		else {
 			shader = shader.replace("/***samplerFunction***/", this.getSampler2D(numSlices));
-			shader = shader.replace("/***samplerDeclaration***/", this.getSampler2DDeclaration); // twice, two occurences
-			shader = shader.replace("/***samplerDeclaration***/", this.getSampler2DDeclaration);
+			shader = shader.replace("/***samplerDeclaration***/", this.fragmentSampler2DDeclaration); // twice, two occurences
+			shader = shader.replace("/***samplerDeclaration***/", this.fragmentSampler2DDeclaration);
 		}
 		console.log(shader);
 		return shader;
