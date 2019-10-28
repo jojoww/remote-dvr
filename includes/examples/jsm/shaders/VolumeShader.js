@@ -213,7 +213,10 @@ var VolumeRenderShader1 = {
 		"		vec4 apply_colormap(vec4 val);",
 		"		vec4 desaturate(vec4 color);",
 		//"		vec4 add_lightingAll(vec4 val, vec3 loc, vec3 step, vec3 view_ray);",
-		"		vec4 add_lighting(float val, vec4 valVec, int component, vec3 loc, vec3 step, vec3 view_ray);",
+		"		vec4 add_lighting0(float val, vec4 valVec, vec3 loc, vec3 step, vec3 view_ray);",
+		"		vec4 add_lighting1(float val, vec4 valVec, vec3 loc, vec3 step, vec3 view_ray);",
+		"		vec4 add_lighting2(float val, vec4 valVec, vec3 loc, vec3 step, vec3 view_ray);",
+		"		vec4 add_lighting3(float val, vec4 valVec, vec3 loc, vec3 step, vec3 view_ray);",
 
 
 
@@ -271,6 +274,8 @@ var VolumeRenderShader1 = {
 		"		vec4 sample1(vec3 texcoords) {",
 		"		/***samplerFunction***/",
 		"		}",
+
+		"		/***lightingFunctions***/",
 
 		"		vec4 vmax(vec4 v1, vec4 v2) {",
 		"				/* Component-wise maximum */",
@@ -414,26 +419,26 @@ var VolumeRenderShader1 = {
 		"						if (found_0 > 0 && val[0] > low_threshold_0) {",
 		"								vec3 iloc = loc - 0.5 * step;",
 		"								found_0 = 0;",
-		"								outColor += add_lighting(val[0], vec4(val[0],0,0,0), 0, iloc, dstep, view_ray);",
+		"								outColor += add_lighting0(val[0], vec4(val[0],0,0,0), iloc, dstep, view_ray);",
 		//"								outColor += vec4(u_customcolor_0, 1.);",
 		"						}",
 
 		"						if (found_1 > 0  && val[1] > low_threshold_1) {",
 		"								vec3 iloc = loc - 0.5 * step;",
 		"								found_1 = 0;",
-		"								outColor += add_lighting(val[1], vec4(0, val[0],0,0), 1, iloc, dstep, view_ray);",
+		"								outColor += add_lighting1(val[1], vec4(0, val[0],0,0), iloc, dstep, view_ray);",
 		"						}",
 
 		"						if (found_2 > 0  && val[2] > low_threshold_2) {",
 		"								vec3 iloc = loc - 0.5 * step;",
 		"								found_2 = 0;",
-		"								outColor += add_lighting(val[2], vec4(0,0,val[0],0), 2, iloc, dstep, view_ray);",
+		"								outColor += add_lighting2(val[2], vec4(0,0,val[0],0), iloc, dstep, view_ray);",
 		"						}",
 
 		"						if (found_3 > 0  && val[3] > low_threshold_3) {",
 		"								vec3 iloc = loc - 0.5 * step;",
 		"								found_3 = 0;",
-		"								outColor += add_lighting(val[3], vec4(0,0,0,val[0]), 3, iloc, dstep, view_ray);",
+		"								outColor += add_lighting3(val[3], vec4(0,0,0,val[0]), iloc, dstep, view_ray);",
 		"						}",
 
 		// Advance location deeper into the volume
@@ -457,59 +462,7 @@ var VolumeRenderShader1 = {
 		"								}",
 		*/
 
-		'vec4 add_lighting(float val, vec4 valVec, int component, vec3 loc, vec3 step, vec3 view_ray)',
-        '{',
-            // Calculate color by incorporating lighting
-
-            // View direction
-            'vec3 V = normalize(view_ray);',
-
-            // calculate normal vector from gradient
-            'vec3 N;',
-            'float val1, val2;',
-            'val1 = sample1(loc + vec3(-step[0], 0.0, 0.0))[component];',
-            'val2 = sample1(loc + vec3(+step[0], 0.0, 0.0))[component];',
-            'N[0] = val1 - val2;',
-            'val = max(max(val1, val2), val);',
-            'val1 = sample1(loc + vec3(0.0, -step[1], 0.0))[component];',
-            'val2 = sample1(loc + vec3(0.0, +step[1], 0.0))[component];',
-            'N[1] = val1 - val2;',
-            'val = max(max(val1, val2), val);',
-            'val1 = sample1(loc + vec3(0.0, 0.0, -step[2]))[component];',
-            'val2 = sample1(loc + vec3(0.0, 0.0, +step[2]))[component];',
-            'N[2] = val1 - val2;',
-            'val = max(max(val1, val2), val);',
-
-            'float gm = length(N); // gradient magnitude',
-            'N = normalize(N);',
-
-            // Flip normal so it points towards viewer
-            'float Nselect = float(dot(N, V) > 0.0);',
-            'N = (2.0 * Nselect - 1.0) * N;  // ==  Nselect * N - (1.0-Nselect)*N;',
-
-            // Init colors
-            'vec4 ambient_color = vec4(0.0, 0.0, 0.0, 0.0);',
-            'vec4 diffuse_color = vec4(0.0, 0.0, 0.0, 0.0);',
-            'vec4 specular_color = vec4(0.0, 0.0, 0.0, 0.0);',
-
-			// Get light direction (make sure to prevent zero devision)
-			'vec3 L = normalize(view_ray);',
-			'float lightEnabled = float( length(L) > 0.0 );',
-			'L = normalize(L + (1.0 - lightEnabled));',
-
-			// Calculate lighting properties
-			'float lambertTerm = clamp(dot(N, L), 0.0, 1.0);',
-			'vec3 H = normalize(L+V); // Halfway vector',
-			'float specularTerm = pow(max(dot(H, N), 0.0), shininess);',
-
-            // Calculate final color by componing different components
-            'vec4 color = vec4(0.);',
-            'color[component] = 1.;',
-            'color = apply_colormap(color);',
-            'color *= (lambertTerm + specularTerm);// * (ambient_color + diffuse_color) + specular_color;',
-            'return color;',
-        '}',
-
+		
 		/*
 		"		vec4 add_lightingAll(vec4 val, vec3 loc, vec3 step, vec3 view_ray)",
 		"		{",
@@ -629,6 +582,53 @@ var VolumeRenderShader1 = {
 	fragmentSampler3DDeclaration : "sampler3D",
 	fragmentSampler2DDeclaration : "sampler2D",
 
+	lighting: [ 'vec4 add_lightingCOMPONENT(float val, vec4 valVec, vec3 loc, vec3 step, vec3 view_ray)',
+		'{',
+				// Calculate color by incorporating lighting
+				// View direction
+		'		vec3 V = normalize(view_ray);',
+					// calculate normal vector from gradient
+		'		vec3 N;',
+		'		float val1, val2;',
+		'		val1 = sample1(loc + vec3(-step[0], 0.0, 0.0))[COMPONENT];',
+		'		val2 = sample1(loc + vec3(+step[0], 0.0, 0.0))[COMPONENT];',
+		'		N[0] = val1 - val2;',
+		'		val = max(max(val1, val2), val);',
+		'		val1 = sample1(loc + vec3(0.0, -step[1], 0.0))[COMPONENT];',
+		'		val2 = sample1(loc + vec3(0.0, +step[1], 0.0))[COMPONENT];',
+		'		N[1] = val1 - val2;',
+		'		val = max(max(val1, val2), val);',
+		'		val1 = sample1(loc + vec3(0.0, 0.0, -step[2]))[COMPONENT];',
+		'		val2 = sample1(loc + vec3(0.0, 0.0, +step[2]))[COMPONENT];',
+		'		N[2] = val1 - val2;',
+		'		val = max(max(val1, val2), val);',
+		'		float gm = length(N); // gradient magnitude',
+		'		N = normalize(N);',
+					// Flip normal so it points towards viewer
+		'		float Nselect = float(dot(N, V) > 0.0);',
+		'		N = (2.0 * Nselect - 1.0) * N;  // ==  Nselect * N - (1.0-Nselect)*N;',
+					// Init colors
+		'		vec4 ambient_color = vec4(0.0, 0.0, 0.0, 0.0);',
+		'		vec4 diffuse_color = vec4(0.0, 0.0, 0.0, 0.0);',
+		'		vec4 specular_color = vec4(0.0, 0.0, 0.0, 0.0);',
+					// Get light direction (make sure to prevent zero devision)
+		'		vec3 L = normalize(view_ray);',
+		'		float lightEnabled = float( length(L) > 0.0 );',
+		'		L = normalize(L + (1.0 - lightEnabled));',
+					// Calculate lighting properties
+		'		float lambertTerm = clamp(dot(N, L), 0.0, 1.0);',
+		'		vec3 H = normalize(L+V); // Halfway vector',
+		'		float specularTerm = pow(max(dot(H, N), 0.0), shininess);',
+					// Calculate final color by componing different components
+		'		vec4 color = vec4(0.);',
+		'		color[COMPONENT] = 1.;',
+		'		color = apply_colormap(color);',
+		'		color *= (lambertTerm + specularTerm);// * (ambient_color + diffuse_color) + specular_color;',
+		'		return color;',
+		'}',
+		''
+		].join( "\n" ),
+
 
 	getSampler2D : function(numSlices) {
 		var s = [];
@@ -659,6 +659,15 @@ var VolumeRenderShader1 = {
 			shader = shader.replace("/***samplerDeclaration***/", this.fragmentSampler2DDeclaration); // twice, two occurences
 			shader = shader.replace("/***samplerDeclaration***/", this.fragmentSampler2DDeclaration);
 		}
+
+		var lightingFunctions = "";
+
+		for(var i = 0; i < 4; i++) {
+			lightingFunctions += this.lighting.replace(/COMPONENT/g, i) 
+			// 
+		}
+		shader = shader.replace("/***lightingFunctions***/", lightingFunctions)
+		console.log(lightingFunctions)
 		console.log(shader);
 		return shader;
 	}
