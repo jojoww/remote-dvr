@@ -149,7 +149,8 @@ var VolumeRenderShader1 = {
 		"		}",
 	].join( "\n" ),
 	fragmentShader: [
-		"		precision highp float;",
+		"		precision mediump float;",
+		"		precision mediump int;",
 		"		precision mediump /***samplerDeclaration***/;",
 
 		"		uniform vec3 u_size;",
@@ -632,9 +633,9 @@ var VolumeRenderShader1 = {
 	getSampler2D : function(numSlices) {
 		var s = [];
 		//s.push("		int z = int(texcoords.z * float(u_numSlices.z));")
-		s.push("		uint z = uint(min(int(u_numSlices.z) - 1, max(0, int(texcoords.z * float(u_numSlices.z)))));")
-		s.push("		uint offsetX = z % uint(u_grid2D.x);")
-		s.push("		uint offsetY = uint(z / uint(u_grid2D.x));")
+		s.push("		int z = int(min(u_numSlices.z - 1., max(0., texcoords.z * u_numSlices.z)));")
+		s.push("		int offsetX = int(mod(float(z), u_grid2D.x));")
+		s.push("		int offsetY = int(z / int(u_grid2D.x));")
 		s.push("		vec2 newCoords = vec2(float(offsetX), float(offsetY)) + texcoords.xy;")
 		//s.push("		vec2 newCoords = texcoords.xy;")
 		s.push("		newCoords /= u_grid2D;") // Scale to new tex coords in 0/1

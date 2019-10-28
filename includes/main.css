@@ -258,14 +258,14 @@ input[type='color']::-webkit-color-swatch {
 .statusBar {
     width: 50%;
     background-color: rgba(255, 255, 255, 0.3);
-    position: relative;
+    position: absolute;
     height: 20px;
-    margin-top: 5px;
     line-height: 20px;
 }
 
 
 .statusBarBackground {
+    margin-top: 5px;
     position: relative;
     background-color: rgba(0, 0, 0, 0.5);
     color: #cccccc;

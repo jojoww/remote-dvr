@@ -47,7 +47,7 @@
                     <div class="row" id="cameraRotationSliderRow">
                         <div class="col-2">Spin cam (y):</div>
                         <div class="col-sm">
-                            <input type="number" min="0" max="360" value="0.0" step="0.1" class="form-control-sm" name="cameraSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
+                            <input type="number" min="0" max="360" value="0.0" step="0.1" class="form-control-sm" name="cameraSliderNumeric" oninput="javascript:processSliderNumericInput(this)" />
                             <input type="range" min="0" max="360" value="0.0" step="0.1" class="slider" name="cameraSlider" oninput="javascript:setCamera(processSliderInput(this));" />
                         </div>
                     </div>
@@ -194,7 +194,7 @@
             import * as THREE from './includes/build/three.module.js';
             import { OrbitControls } from './includes/examples/jsm/controls/OrbitControls.js';
             import { TrackballControls } from './includes/examples/jsm/controls/TrackballControls.js';
-            import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js?v=4' ;
+            import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js?v=11' ;
             import { WEBGL } from './includes/examples/jsm/WebGL.js';
 
             // Check availability of WebGL 2.0. We need 2.0 since WebGL 1.0 does
@@ -454,12 +454,20 @@
 
                 var dataArray = null;
                 var numTotal = x * y * z * numChannelsGPU;
+                var maxTexSize = renderer.capabilities.maxTextureSize;
+                console.log("Maximum texture size of this device: ", maxTexSize);
                 if(!useSampler3D) {
-                    var maxTexSize = renderer.capabilities.maxTextureSize;
                     sampler2DGridX = Math.floor(maxTexSize / (x));
                     sampler2DGridY = Math.ceil((z) / sampler2DGridX);
+                    if(sampler2DGridY * y > maxTexSize) {
+                        alert("The 2D texture is too large for this graphics card! Try downsampling.");
+                    }
                     numTotal = sampler2DGridX * (x) * sampler2DGridY * (y) * numChannelsGPU;
-                    console.log("Total number of voxels:", numTotal)
+                } else {
+                    if(x > maxTexSize || y > maxTexSize || z > maxTexSize) {
+                        alert("The 3D texture is too large for this graphics card! Try downsampling.");
+
+                    }
                 }
 
                 if (useByte) {
@@ -950,10 +958,9 @@
             window.setSlice = setSlice;
 
             function setCamera(val) {
-                var valRad = val / 180. * Math.PI;
-                var l = camera.position.length();
-                var x = Math.sin(valRad)
-                var z = Math.cos(valRad)
+                var angle = val / 180. * Math.PI;
+                var x = Math.cos(angle)
+                var z = Math.sin(angle)
                 var newPos =  new THREE.Vector3(x * 5000, 0, z * 5000)
                 var center = new THREE.Vector3( controls.target.x, 
                     controls.target.y, 
@@ -1099,11 +1106,16 @@
                     barOuter.id = "statusBar" + i;
                     barOuter.classList.add("none");
                     barOuter.classList.add("statusBarBackground");
-                    var barInner = document.createElement("div")
+                    var barInner = document.createElement("div");
                     barInner.id="statusBarInner" + i;
                     barInner.classList.add("statusBar");
                     barInner.innerHTML = "&nbsp;";
+                    var barText = document.createElement("div");
+                    barText.id="statusBarText" + i;
+                    barText.classList.add("statusBarText");
+
                     barOuter.appendChild(barInner);
+                    barOuter.appendChild(barText);
                     father.appendChild(barOuter);
                 }
             }
@@ -1462,22 +1474,36 @@
                 document.getElementById('navigationAreaCloseButton').classList.toggle('crossed');
             }
 
-            
+            /**
+             * Shows loading bar and sets text/percentage and adjusts the width of the bar
+             * @param {int} index The dataset we are talking about
+             * @param {int} percentage The progress in percent, as number between 0 and 100
+             * @param {string} text A short message (like one or two words) printed after the percentage (on the loading bar)
+             */
             function setLoadingStatus(index, percentage, text) {
                 document.getElementById("statusBar" + index).classList.remove("none")
                 document.getElementById("statusBarInner" + index).style.width = percentage + '%';
                 // Adding a space before, just for the optics (I know, this is the lazy way...)
-                document.getElementById("statusBarInner" + index).innerHTML = "&nbsp;" + percentage + '% ' + text;
+                document.getElementById("statusBarText" + index).innerHTML = "&nbsp;" + percentage + '% ' + text;
             }
 
+            /**
+             * Hides the loading bar after loading
+             */
             function loadingFinished(index) {
                 document.getElementById("statusBar" + index).classList.add("none")
             }
 
+            /**
+             * Shows the slider that rotates the camera around y
+             */
             function showRotationCamSlider() {
                 document.getElementById("cameraRotationSliderRow").classList.remove("none")
             }
 
+            /**
+             * Hides the slider that rotates the camera around y
+             */
             function hideRotationCamSlider() {
                 document.getElementById("cameraRotationSliderRow").classList.add("none")
             }
