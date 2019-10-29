@@ -1,15 +1,15 @@
 # Data Preview Tool
-This tool aims to provide a quick overview of 3D data during the image acquisition process. This software must be provided by a web server (HTTP) and must be executed in a Chrome-based browser. 
+This tool aims to provide a quick overview of 3D data during the image acquisition process. This software must be provided by a web server (HTTP). A Chrome-based browser is recommended for highest performance. 
 
 ## For the end user
-This program should be provided by a server, for example over the URL http://localhost/viewer. Open this URL in Chrome or a similar browser that supports WebGL 2.0 (preferred) or at least WebGL 1.0 (having worse image quality). 
+This program should be provided by a server, for example over the URL http://localhost/viewer. Open this URL in Chrome or a similar browser that supports WebGL 2.0 (preferred) or at least WebGL 1.0 (resulting in worse image quality). 
  
 ### Configuration
 The first view is a configuration page where you have to enter multiple information:
 
 - The URL of a configuration file, also on a web server, e.g. http://localhost/data/config.json
 - The URL of the data root folder, also on a web server, e.g. http://localhost/data/
-- A sampling rate for the volume rendering. Value 1 means that every pixel is roughly sampled once. Value 2 means oversampling, hence every pixel is sampled twice. Lower values lead to skipped pixels: value 0.1 means only one of 10 pixels is considered. A value of 1 is recommended, but lower values can tremendously increase rendering speed. Note: This does NOT affect the view of cutting planes. Cutting planes have always high quality.
+- A sampling rate for the volume rendering. Value 1 means that every pixel is sampled at least once. Value 2 means oversampling, hence every pixel is sampled twice. Lower values lead to skipped pixels: value 0.1 means only one of 10 pixels is considered. A value of 1 is recommended, but lower values can tremendously increase rendering speed. Note: This does NOT affect the view of cutting planes. Cutting planes have always high quality.
 - Type of the data. Uint8 means that each channel is converted to 256 intensity levels. Float32 offers much higher precision but requires four times the memory on the graphics card. Although it is below the resolution of the microscope's camera, uint8 should be sufficient for most images. Note, the program stretches the histogram to maximize the dynamic range.
 
 ### Exploration
@@ -23,6 +23,7 @@ The program offers various methods of visualization:
 - Maximum intensity projection (MIP). This method looks through the image and shows you the brightest parts only.
 - Iso surface. Select an intensity value and you will see a surface covering all image elements with (at least) this intensity.
 - Average. This looks through the image and averages the intensity, which is comparable to an x-ray image.
+- A slider for rotation around the y axis helps you to rotate the value in the same manner as it is rotated on the microscope stage (not usable in slice view mode). This might be helpful for the positioning of the specimen.
 
 Note, some settings are applied on the whole image (e.g. the choice of the cutting plane) whereas other settings must be specifically adjusted for each channel of the image. In that way you can give the channels different colors or render them with different iso values.
 
@@ -34,24 +35,19 @@ This tool requires a configuration file, which provides basic information about 
 
 ```json
 {
-    "xsize":512,
-    "ysize":512,
-    "zsize":370,
-    "xpixelsize":2.6,
-    "ypixelsize":2.6,
-    "zpixelsize":2,
-    "filelocation": {
-        "488": "#/localhost/data/data1.raw",
-        "530": "#/localhost/data/data2.raw"
-    },
-    "timestamp": {
-        "488": "23 Oct 2019 12:47:52:316 -0500",
-        "530": "23 Oct 2019 12:47:59:812 -0500"
-    }
+    "pixelsize": [2.6, 2.6, 2.0],
+    "images": [
+        {"url": "#/datafile002.raw",
+         "timestamp" : "image id 031201",
+         "wavelength" : "488",
+         "offset" : [0, 0, 0],
+         "datasize" : [512, 512, 370],
+         "flipping" : [false, false, false]}, 
+         ...
+    ]
 }
 ```
-The first three values describe the data dimension and the `pixelsize`-values give information about the aspect ratio of a single voxel. They must remain constant over time and they must be equal for all channels! For each channel (up to a maximum of four) we need two pieces of information. First, a timestamp: whenever the timestamp of a channel changes, the channel will be reloaded. Second, the url of the channel's data. The url can be changing with every time step (which is recommended to avoid problems by half-overwritten files etc.). The URL may contain a sharp (#) which will be replaced by the data root URL (see above).
-
+The first three values describe the dimensions of a single voxel. In this case, a single voxels represents a volume of 2.6 x 2.6 x 2 microns. These values must remain constant over time and they must be equal for all images. Next, the JSON file provides individual information about each image that should be loaded. Each image comes with its own URL and a timestamp. Once the timestamp changes, the image will be reloaded. The timestamp can be any string - we only check for changes in that string. Each image can have an individual data size and offset. Furthermore it is possible to flip the data at any individual axis, which allows for example the stitching of two images acquired by two cameras facing each other. Note, flipping the data is performed first, moving the image to a certain offset position is performed afterwards. The wavelength entry is used to group images by channel. All images with the same wavelength will be drawn into the same channel. There can be up to four different channels (hence, four different wavelengths). 
 
 The data itself must be provided as a byte array of uint16 values.
 
@@ -70,3 +66,4 @@ If the framerate is very low or if the view flashes up for a moment and then see
 ### Nothing happens at all
 Ideas: Your browser does not support WebGL. Check that on https://get.webgl.org/. Or maybe you did not run the program on web server. 
 For advanced users: check Chrome's developer console
+
