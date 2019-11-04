@@ -125,8 +125,8 @@
                                     Iso value:
                                 </div>
                                 <div class="col-sm">
-                                    <input type="number" min="0" max="1" value="1" step="0.001" class="form-control-sm" name="isoSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
-                                    <input type="range" min="0" max="1" value="1" step="0.001" class="slider" name="isoSlider" oninput="javascript:setIsoValue(this.value, getMyChannel(this))" />
+                                    <input type="number" min="0" max="1" value="1" step="0.001" class="form-control-sm" name="isoSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
+                                    <input type="range" min="0" max="1" value="1" step="0.001" class="slider" name="isoSlider" oninput="javascript:setIsoValue(processSliderInput(this, false), getMyChannel(this))" />
                                 </div>
                             </div>
                             <div class="row">
@@ -136,15 +136,15 @@
                                 <div class="col-10">
                                     <div class="row">
                                         <div class="col-12">
-                                            <input type="number" min="0" max="1" value="0.0" step="0.001" class="form-control-sm" name="minSliderNumeric" onchange="javascript:processSliderNumericInput(this, getMyChannel(this))" />
+                                            <input type="number" min="0" max="1" value="0.0" step="0.001" class="form-control-sm" name="minSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
                                             <input type="range" min="0" max="1" value="0.0" step="0.001" class="slider" name="minSlider" oninput="javascript:setColorMinimum(processSliderInput(this, false), getMyChannel(this))" />
                                         </div>
                                         <div class="col-12">
-                                            <input type="number" min="0" max="1" value="1.0" step="0.001" class="form-control-sm" name="maxSliderNumeric" onchange="javascript:processSliderNumericInput(this, getMyChannel(this))" />
+                                            <input type="number" min="0" max="1" value="1.0" step="0.001" class="form-control-sm" name="maxSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
                                             <input type="range" min="0" max="1" value="1.0" step="0.001" class="slider" name="maxSlider" oninput="javascript:setColorMaximum(processSliderInput(this, false), getMyChannel(this))" />
                                         </div>
                                         <div class="col-12">
-                                            <input type="number" min="0" max="3" value="1.0" step="0.001" class="form-control-sm" name="gammaSliderNumeric" onchange="javascript:processSliderNumericInput(this, getMyChannel(this))" />
+                                            <input type="number" min="0" max="3" value="1.0" step="0.001" class="form-control-sm" name="gammaSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
                                             <input type="range" min="0" max="3" value="1.0" step="0.001" class="slider" name="gammaSlider" oninput="javascript:setGamma(processSliderInput(this, false), getMyChannel(this))" />
                                         </div>
                                     </div>
@@ -237,6 +237,7 @@
             var worldDimensions = [0, 0, 0]; // Number of elements per axis
             var imageChannels = []; // For each image: channel it belongs to (like a reverse index)
             var worldScale = [1, 1, 1]; // Voxel spacing for x, y, z dimensions
+            var isRendering = false;
 
             var noTextureLoaded = true; // Just to know if we have successfully loaded anything
             var autoScreenshot = true; // If true, a screenshot is taken just before a new texture is loaded
@@ -280,7 +281,7 @@
 
                 // Create . The target will be updated once we know the data size.
                 controls = new OrbitControls(camera, renderer.domElement);
-                controls.addEventListener('change', render);
+                controls.addEventListener('change', renderCall);
                 controls.target.set(64, 64, 128);
                 controls.minZoom = 0.1;
                 controls.maxZoom = 100;
@@ -301,6 +302,7 @@
                 // Now we start observing our data source (and also window size changes)
                 observeExternalDataSource();
                 window.addEventListener('resize', onWindowResize, false);
+                render();
             }
 
             /**
@@ -537,7 +539,7 @@
                 controls.target.set(volX / 2, volY / 2, volZ / 2);
                 controls.update();
                 scene.add(mesh);
-                render();
+                renderCall();
                 addChannelsToGui(imageChannels);
                 addLoadingBarsToGui(numImages);
             }
@@ -680,7 +682,7 @@
                 console.log('Updated texture:', texture);
                 this.loadingFinished(index);
                 this.texture.needsUpdate = true;
-                this.render();
+                this.renderCall();
             }
 
             /**
@@ -726,7 +728,7 @@
                         parameters.sampler2DGridX = sampler2DGridX;
                         parameters.sampler2DGridY = sampler2DGridY;
                         parameters.moveTo2DSamplerPosition = moveTo2DSamplerPosition;
-                        parameters.render = render;
+                        parameters.renderCall = renderCall;
                         parameters.loadingFinished = loadingFinished;
                         parameters.channel = channelToIndex[images[i].wavelength];
                         parameters.setLoadingStatus = setLoadingStatus;
@@ -774,13 +776,19 @@
                     camera.right = (frustumHeight * aspect) / 2;
                     camera.updateProjectionMatrix();
                 }
-                render();
+                renderCall();
             }
 
             /**
              * The render loop
              */
             function render() {
+                if( isRendering ) {
+                    console.log("Skip this frame, still busy");
+                    return;
+                }
+                isRendering = true;
+                console.log("Render");
                 renderer.render(scene, camera);
 
                 // Update the axes view to the current camera settings
@@ -789,6 +797,19 @@
                 camera2.position.setLength(2);
                 camera2.lookAt(scene2.position);
                 renderer2.render(scene2, camera2);
+                isRendering = false;
+                //requestAnimationFrame( render );
+            }
+
+            /**
+             * This one is called whenever something in the scene is changed. However, we 
+             * currently don't need it since we use a render loop that automatically 
+             * repaints the scene whenever possible. (An alternative approach would be to
+             * not use an automated render loop but to call the render command each time
+             * something has changed)
+            */
+            function renderCall() {
+                requestAnimationFrame(render);
             }
 
             /**
@@ -828,7 +849,7 @@
              */
             function takeScreenshot() {
                 if (noTextureLoaded) return;
-                renderer.render(scene, camera);
+                renderer.renderCall(scene, camera);
                 addScreenshot(renderer.domElement.toDataURL());
             }
             window.takeScreenshot = takeScreenshot;
@@ -860,7 +881,7 @@
              */
             function setChannelVisible(val, channel) {
                 material.uniforms['u_used_' + channel].value = val ? 1 : 0;
-                render();
+                renderCall();
             }
             window.setChannelVisible = setChannelVisible;
 
@@ -873,7 +894,7 @@
             function setColorMap(mapName, channel) {
                 material.uniforms['u_colormode_' + channel].value = 0;
                 material.uniforms['u_cmdata_' + channel].value = cmtextures[mapName];
-                render();
+                renderCall();
             }
             window.setColorMap = setColorMap;
 
@@ -887,7 +908,7 @@
                 controls.enablePan = true;
                 hideSliceAndIsoSlider();
                 material.uniforms['u_renderstyle'].value = 0;
-                render();
+                renderCall();
             }
             window.enableMIP = enableMIP;
 
@@ -901,7 +922,7 @@
                 controls.enablePan = true;
                 hideSliceAndIsoSlider();
                 material.uniforms['u_renderstyle'].value = 3;
-                render();
+                renderCall();
             }
             window.enableAverage = enableAverage;
 
@@ -917,7 +938,7 @@
 
                 showIsoSlider();
                 material.uniforms['u_renderstyle'].value = 1;
-                render();
+                renderCall();
             }
             window.enableIso = enableIso;
 
@@ -928,7 +949,7 @@
              */
             function setIsoValue(val, channel) {
                 material.uniforms['u_renderthreshold_' + channel].value = val;
-                render();
+                renderCall();
             }
             window.setIsoValue = setIsoValue;
 
@@ -941,7 +962,7 @@
              */
             function setSlice(val) {
                 material.uniforms['u_slice'].value = val;
-                render();
+                renderCall();
             }
             window.setSlice = setSlice;
 
@@ -958,7 +979,7 @@
                 newPos.add(center);
                 camera.position.set(newPos.x, newPos.y, newPos.z);
                 camera.lookAt(new THREE.Vector3(controls.target.x, controls.target.y, controls.target.z));
-                render();
+                renderCall();
             }
             window.setCamera = setCamera;
 
@@ -969,7 +990,7 @@
              */
             function setColorMinimum(val, channel) {
                 material.uniforms['u_clim_' + channel].value.set(val, material.uniforms['u_clim_' + channel].value.y);
-                render();
+                renderCall();
             }
             window.setColorMinimum = setColorMinimum;
 
@@ -980,7 +1001,7 @@
              */
             function setColorMaximum(val, channel) {
                 material.uniforms['u_clim_' + channel].value.set(material.uniforms['u_clim_' + channel].value.x, val);
-                render();
+                renderCall();
             }
             window.setColorMaximum = setColorMaximum;
 
@@ -991,7 +1012,7 @@
              */
             function setGamma(val, channel) {
                 material.uniforms['u_gamma_' + channel].value = val;
-                render();
+                renderCall();
             }
             window.setGamma = setGamma;
 
@@ -1002,7 +1023,7 @@
              */
             function enableCustomColor(channel) {
                 material.uniforms['u_colormode_' + channel].value = 1;
-                render();
+                renderCall();
             }
             window.enableCustomColor = enableCustomColor;
 
@@ -1016,7 +1037,7 @@
             function setCustomColor(color, channel) {
                 var c = new THREE.Color(color);
                 material.uniforms['u_customcolor_' + channel].value.set(c.r, c.g, c.b);
-                render();
+                renderCall();
             }
             window.setCustomColor = setCustomColor;
 
@@ -1026,7 +1047,7 @@
              */
             function setBackgroundColor(color) {
                 renderer.setClearColor(color);
-                render();
+                renderCall();
             }
             window.setBackgroundColor = setBackgroundColor;
 
@@ -1063,7 +1084,7 @@
                     camera.quaternion.set(0, 0, 0, 1);*/
                 }
                 material.uniforms['u_renderstyle'].value = 2;
-                render();
+                renderCall();
             }
             window.enableSlice = enableSlice;
 
@@ -1314,14 +1335,18 @@
              * have an infinite loop jumping between the slider and its input field.
              * @param {HTMLElement} element The input field that accompanies a slider
              */
-            function processSliderNumericInput(element) {
+            function processSliderNumericInput(element, linear = true) {
                 // Check if we are independent or if we belong to a specific channel
                 var reference = element.closest('.channelProperties');
                 if (reference === null) reference = document;
 
                 // Remove last occurence of "Numeric" to get id of accompanying slider
                 var name = element.name.replace(new RegExp('Numeric$'), '');
-                reference.querySelector('input[name="' + name + '"]').value = element.value;
+                var value = element.value;
+                if(!linear) {
+                    value = Math.sqrt(value);
+                }
+                reference.querySelector('input[name="' + name + '"]').value = value;
                 reference.querySelector('input[name="' + name + '"]').oninput();
             }
 

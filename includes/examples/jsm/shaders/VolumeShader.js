@@ -277,15 +277,6 @@ var VolumeRenderShader1 = {
 
 		"		/***lightingFunctions***/",
 
-		"		vec4 vmax(vec4 v1, vec4 v2) {",
-		"				/* Component-wise maximum */",
-		"				return vec4(max(v1.x, v2.x), max(v1.y, v2.y), max(v1.z, v2.z), max(v1.w, v2.w));",
-		"		}",
-
-		"		vec4 vmin(vec4 v1, vec4 v2) {",
-		"				/* Component-wise minimum */",
-		"				return vec4(min(v1.x, v2.x), min(v1.y, v2.y), min(v1.z, v2.z), min(v1.w, v2.w));",
-		"		}",
 		
 		// This function reduces saturation of fully saturated channels a little bit, otherwise
 		// shading could look pretty ugly (no highlights etc.)
@@ -296,10 +287,10 @@ var VolumeRenderShader1 = {
 		"		}",
 
 		"		vec4 apply_colormap(vec4 val) {",
-		"				float val_0 = (val[0] - u_clim_0[0]) / (u_clim_0[1] - u_clim_0[0]);",
-		"				float val_1 = (val[1] - u_clim_1[0]) / (u_clim_1[1] - u_clim_1[0]);",
-		"				float val_2 = (val[2] - u_clim_2[0]) / (u_clim_2[1] - u_clim_2[0]);",
-		"				float val_3 = (val[3] - u_clim_3[0]) / (u_clim_3[1] - u_clim_3[0]);",
+		"				float val_1 = clamp((val[1] - u_clim_1[0]) / (u_clim_1[1] - u_clim_1[0]), 0., 1.);",
+		"				float val_2 = clamp((val[2] - u_clim_2[0]) / (u_clim_2[1] - u_clim_2[0]), 0., 1.);",
+		"				float val_0 = clamp((val[0] - u_clim_0[0]) / (u_clim_0[1] - u_clim_0[0]), 0., 1.);",
+		"				float val_3 = clamp((val[3] - u_clim_3[0]) / (u_clim_3[1] - u_clim_3[0]), 0., 1.);",
 		
 		"				vec4 outV = vec4(0, 0, 0, 1);",
 		"				vec4 black = vec4(0, 0, 0, 1);",
@@ -313,7 +304,7 @@ var VolumeRenderShader1 = {
 		"				if(u_used_1 != 0) outV += desaturate((u_colormode_1 == 1) ? (val_1 * vec4(u_customcolor_1, 1.)) : texture2D(u_cmdata_1, vec2(val_1, 0.5)));",
 		"				if(u_used_2 != 0) outV += desaturate((u_colormode_2 == 1) ? (val_2 * vec4(u_customcolor_2, 1.)) : texture2D(u_cmdata_2, vec2(val_2, 0.5)));",
 		"				if(u_used_3 != 0) outV += desaturate((u_colormode_3 == 1) ? (val_3 * vec4(u_customcolor_3, 1.)) : texture2D(u_cmdata_3, vec2(val_3, 0.5)));",
-		"				return outV;",
+		"				return clamp(outV, 0., 1.);",
 		"		}",
 
 
@@ -326,7 +317,7 @@ var VolumeRenderShader1 = {
 		"						if (iter >= nsteps)",
 		"								break;",
 		"						vec4 val = sample1(loc);",
-		"						max_val = vmax(max_val, val);",
+		"						max_val = max(max_val, val);",
 		"						loc += step;",
 		"				}",
 		/*
@@ -407,44 +398,49 @@ var VolumeRenderShader1 = {
 		// Enter the raycasting loop. In WebGL 1 the loop index cannot be compared with
 		// non-constant expression. So we use a hard-coded max, and an additional condition
 		// inside the loop.
+		// Actually, we could do two things: calculate iso surface for each separately or just
+		// stop whenever we reached at least one surface.
 		"				for (int iter=0; iter<MAX_STEPS; iter++) {",
 		"						if (iter >= nsteps)",
 		"								break;",
-		"						if (found_0 + found_1 + found_2 + found_3 == 0)",
-		"								break;",
+		// "						if (found_0 + found_1 + found_2 + found_3 == 0)",
+		// "								break;",
 
 		// Sample from the 3D texture
 		"						vec4 val = sample1(loc);",
 
 		"						if (found_0 > 0 && val[0] > low_threshold_0) {",
 		"								vec3 iloc = loc - 0.5 * step;",
-		"								found_0 = 0;",
 		"								outColor += add_lighting0(val[0], vec4(val[0],0,0,0), iloc, dstep, view_ray);",
-		//"								outColor += vec4(u_customcolor_0, 1.);",
+		"                               break;", // Remove this for channel-wise iso surface
+		"								found_0 = 0;",
 		"						}",
 
 		"						if (found_1 > 0  && val[1] > low_threshold_1) {",
 		"								vec3 iloc = loc - 0.5 * step;",
-		"								found_1 = 0;",
 		"								outColor += add_lighting1(val[1], vec4(0, val[0],0,0), iloc, dstep, view_ray);",
+		"                               break;", // Remove this for channel-wise iso surface
+		"								found_1 = 0;",
 		"						}",
 
 		"						if (found_2 > 0  && val[2] > low_threshold_2) {",
 		"								vec3 iloc = loc - 0.5 * step;",
-		"								found_2 = 0;",
 		"								outColor += add_lighting2(val[2], vec4(0,0,val[0],0), iloc, dstep, view_ray);",
+		"                               break;", // Remove this for channel-wise iso surface
+		"								found_2 = 0;",
 		"						}",
 
 		"						if (found_3 > 0  && val[3] > low_threshold_3) {",
 		"								vec3 iloc = loc - 0.5 * step;",
-		"								found_3 = 0;",
 		"								outColor += add_lighting3(val[3], vec4(0,0,0,val[0]), iloc, dstep, view_ray);",
+		"                               break;", // Remove this for channel-wise iso surface
+		"								found_3 = 0;",
 		"						}",
 
 		// Advance location deeper into the volume
 		"						loc += step;",
 		"				}",
-		"				gl_FragColor = vmin(vec4(1., 1., 1., 1.), outColor);",
+		"				gl_FragColor = min(vec4(1., 1., 1., 1.), outColor);",
 		"		}",
 
 
