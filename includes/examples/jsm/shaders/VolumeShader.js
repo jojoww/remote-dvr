@@ -199,9 +199,6 @@ var VolumeRenderShader1 = {
 		"		const int MAX_STEPS = 1774;	// 887 for 512^3, 1774 for 1024^3",
 		"		const int REFINEMENT_STEPS = 4;",
 		"		const float relative_step_size = 1.0;",
-		"		const vec4 ambient_color = vec4(0.2, 0.4, 0.2, 1.0);",
-		"		const vec4 diffuse_color = vec4(0.8, 0.2, 0.2, 1.0);",
-		"		const vec4 specular_color = vec4(1.0, 1.0, 1.0, 1.0);",
 		"		const float shininess = 40.0;",
 
 		"		void cast_mip(vec3 start_loc, vec3 step, int nsteps, vec3 view_ray);",
@@ -209,10 +206,14 @@ var VolumeRenderShader1 = {
 		"		void cast_iso(vec3 start_loc, vec3 step, int nsteps, vec3 view_ray);",
 		"		void cast_planes(vec3 start_loc);",
 
-		"		vec4 sample1(vec3 texcoords);",
+		"		vec4 sampleTexture(vec3 texcoords);",
 		"		vec4 apply_colormap(vec4 val);",
 		"		vec4 desaturate(vec4 color);",
-		//"		vec4 add_lightingAll(vec4 val, vec3 loc, vec3 step, vec3 view_ray);",
+		
+		// Four times the same function but just caring about different components of the value 
+		// vector. We do this because WebGL does only allow static vector access (but not 
+		// something like vec[i]). Since this shader is just a string so far, we can at least
+		// auto-generate the actual functions and don't have to manually write four versions.
 		"		vec4 add_lighting0(float val, vec4 valVec, vec3 loc, vec3 step, vec3 view_ray);",
 		"		vec4 add_lighting1(float val, vec4 valVec, vec3 loc, vec3 step, vec3 view_ray);",
 		"		vec4 add_lighting2(float val, vec4 valVec, vec3 loc, vec3 step, vec3 view_ray);",
@@ -221,11 +222,8 @@ var VolumeRenderShader1 = {
 
 
 		"		void main() {",
-		// Normalize clipping plane info
 		"				vec3 farpos = v_farpos.xyz / v_farpos.w;",
 		"				vec3 nearpos = v_nearpos.xyz / v_nearpos.w;",
-		
-		// Calculate unit vector pointing in the view direction through this fragment.
 		"				vec3 view_ray = normalize(nearpos.xyz - farpos.xyz);",
 		
 		// Compute the (negative) distance to the front surface or near clipping plane.
@@ -247,16 +245,16 @@ var VolumeRenderShader1 = {
 		"				if ( nsteps < 1 )",
 		"						discard;",
 		
-		// Get starting location and step vector in texture coordinates // u_size or u_numSlices
+		// Get starting location and step vector in texture coordinates
+		// Note: u_size contains the data dimension in "microns" (not texture space). For
+		// example, a volume of 100x100x100 voxels with voxel dimensions of 2x1x1 would 
+		// result in a "micron" space of 200x100x100. Thus, in that case, we would perform up
+		// to 200 sampling steps along the x axis, although actually 100 should be enough.
+		// This is kind of a waste, especially when any of the voxel dimensions are much
+		// bigger than 1. However, it's easier to understand. As long as we normalize the
+		// voxel dimension to make the smallest component equal 1, it should be okay.
 		"				vec3 step = ((v_position - front) / u_size) / float(nsteps);",
 		"				vec3 start_loc = front / u_size;",
-		
-		// For testing: show the number of steps. This helps to establish
-		// whether the rays are correctly oriented
-		//'gl_FragColor = vec4(0.0, float(nsteps) / 1.0 / u_size.x, 1.0, 1.0);',
-		//'return;',
-		//"				gl_FragColor = vec4(start_loc, 1.);return;", // debug
-		
 		"				if (u_renderstyle == 0)",
 		"						cast_mip(start_loc, step, nsteps, view_ray);",
 		"				else if (u_renderstyle == 1)",
@@ -265,17 +263,18 @@ var VolumeRenderShader1 = {
 		"						cast_planes(start_loc);",
 		"				else if (u_renderstyle == 3)",
 		"						cast_average(start_loc, step, nsteps, view_ray);",
-		
-		
 		"				if (gl_FragColor.a < 0.05)",
 		"						discard;",
 		"		}",
 		
-		"		vec4 sample1(vec3 texcoords) {",
-		"		/***samplerFunction***/",
+		// Will be replaced automatically, depending on whether we have access to WebGL 1 or 2
+		"		vec4 sampleTexture(vec3 texcoords) {",
+		"/***samplerFunction***/",
 		"		}",
 
-		"		/***lightingFunctions***/",
+		// Will be replaced automatically, since we have to have basically the same function 
+		// just with different vector components (x, y, z, w). Just for convenience.
+		"/***lightingFunctions***/",
 
 		
 		// This function reduces saturation of fully saturated channels a little bit, otherwise
@@ -286,10 +285,16 @@ var VolumeRenderShader1 = {
 		"			return color;",
 		"		}",
 
+		// This function takes the vector with intensity values for each channel, adjusts contrast
+		// for each of them, translates them to a color. Note, the performance impact of this 
+		// function could probably be reduced further (didn't optimize anything yet), but the 
+		// sampling seems to be the bottleneck anyway (> 80%).
+		// Note: this function must be called before lighting is calculated/added.
 		"		vec4 apply_colormap(vec4 val) {",
+		//"               return vec4(val.xyz, 1.);", // Debug & performance measure
+		"				float val_0 = clamp((val[0] - u_clim_0[0]) / (u_clim_0[1] - u_clim_0[0]), 0., 1.);",
 		"				float val_1 = clamp((val[1] - u_clim_1[0]) / (u_clim_1[1] - u_clim_1[0]), 0., 1.);",
 		"				float val_2 = clamp((val[2] - u_clim_2[0]) / (u_clim_2[1] - u_clim_2[0]), 0., 1.);",
-		"				float val_0 = clamp((val[0] - u_clim_0[0]) / (u_clim_0[1] - u_clim_0[0]), 0., 1.);",
 		"				float val_3 = clamp((val[3] - u_clim_3[0]) / (u_clim_3[1] - u_clim_3[0]), 0., 1.);",
 		
 		"				vec4 outV = vec4(0, 0, 0, 1);",
@@ -300,23 +305,24 @@ var VolumeRenderShader1 = {
 		"				val_2 = pow(abs(val_2), 1. / u_gamma_2);",
 		"				val_3 = pow(abs(val_3), 1. / u_gamma_3);",
 
-		"				if(u_used_0 != 0) outV += desaturate((u_colormode_0 == 1) ? (val_0 * vec4(u_customcolor_0, 1.)) : texture2D(u_cmdata_0, vec2(val_0, 0.5)));",
 		"				if(u_used_1 != 0) outV += desaturate((u_colormode_1 == 1) ? (val_1 * vec4(u_customcolor_1, 1.)) : texture2D(u_cmdata_1, vec2(val_1, 0.5)));",
+		"				if(u_used_0 != 0) outV += desaturate((u_colormode_0 == 1) ? (val_0 * vec4(u_customcolor_0, 1.)) : texture2D(u_cmdata_0, vec2(val_0, 0.5)));",
 		"				if(u_used_2 != 0) outV += desaturate((u_colormode_2 == 1) ? (val_2 * vec4(u_customcolor_2, 1.)) : texture2D(u_cmdata_2, vec2(val_2, 0.5)));",
 		"				if(u_used_3 != 0) outV += desaturate((u_colormode_3 == 1) ? (val_3 * vec4(u_customcolor_3, 1.)) : texture2D(u_cmdata_3, vec2(val_3, 0.5)));",
 		"				return clamp(outV, 0., 1.);",
 		"		}",
 
 
+		// MIP - walk through the volume and remember "the brightest" spot
 		"		void cast_mip(vec3 start_loc, vec3 step, int nsteps, vec3 view_ray) {",
 
 		"				vec4 max_val = vec4(-1, -1, -1, -1);",
-		"				int max_i = 100;",
+		"				vec4 val;",
 		"				vec3 loc = start_loc;",
-		"				for (int iter=0; iter<MAX_STEPS; iter++) {",
+		"				for (int iter = 0; iter < MAX_STEPS; iter++) {",
 		"						if (iter >= nsteps)",
 		"								break;",
-		"						vec4 val = sample1(loc);",
+		"						val = sampleTexture(loc);",
 		"						max_val = max(max_val, val);",
 		"						loc += step;",
 		"				}",
@@ -324,24 +330,24 @@ var VolumeRenderShader1 = {
 		// Refine location, gives crispier images
 		"				vec3 iloc = start_loc + step * (float(max_i) - 0.5);",
 		"				vec3 istep = step / float(REFINEMENT_STEPS);",
-		"				for (int i=0; i<REFINEMENT_STEPS; i++) {",
-		"						max_val = max(max_val, sample1(iloc));",
+		"				for (int i = 0; i < REFINEMENT_STEPS; i++) {",
+		"						max_val = max(max_val, sampleTexture(iloc));",
 		"						iloc += istep;",
 		"				}",
 		*/		
-		// Resolve final color
 		"				gl_FragColor = apply_colormap(max_val);",
 		"		}",
 
-		
+		// Creates an "x-ray" image by averaging all volume elements along a ray
 		"		void cast_average(vec3 start_loc, vec3 step, int nsteps, vec3 view_ray) {",
 		"				int counter = 0;",
 		"				vec3 loc = start_loc;",
 		" 				vec4 outColor = vec4(0.);",
+		" 				vec4 val;",
 		"				for (int iter=0; iter<MAX_STEPS; iter++) {",
 		"						if (iter >= nsteps)",
 		"								break;",
-		"						vec4 val = sample1(loc);",
+		"						val = sampleTexture(loc);",
 		"						outColor += val;",
 		"						loc += step;",
 		"						counter++;",
@@ -349,37 +355,37 @@ var VolumeRenderShader1 = {
 		"				gl_FragColor = apply_colormap(outColor / float(counter));",
 		"		}",
 
-		// Idea: On each side of the cube, map the respective slice on the outer surface
+		// Idea: On each side of the cube, map the respective slice on the outer surface. Like 
+		// cutting off n planes from a side, take a photo, put back the removed slices, print 
+		// the photo on the outside of the cube
 		"		void cast_planes(vec3 start_loc) {",
-		"               vec4 outColor = vec4(0.5, 0.5, 0.5, 1.);",
 		"				vec3 start_loc_r = vec3(max(0., 1. - start_loc.x), max(0., 1. - start_loc.y), max(0., 1. - start_loc.z));",
 		"               vec3 dir = vec3(0., 0., 0.);",
 		"				vec3 checkVec = start_loc_r;",
+		// Find out from which side we are entering the volume. First: the axis.
+		"               if(checkVec.x < checkVec.y && checkVec.x < checkVec.z) {dir = vec3(1., 0., 0.);}", //debugColor.x = 0.5 + 0.5 * sign;}",
+		"               if(checkVec.y < checkVec.x && checkVec.y < checkVec.z) {dir = vec3(0., 1., 0.);}", //debugColor.y = 0.5 + 0.5 * sign;}",
+		"               if(checkVec.z < checkVec.y && checkVec.z < checkVec.x) {dir = vec3(0., 0., 1.);}", //debugColor.z = 0.5 + 0.5 * sign;}",
+		// Now find out direction along the axis (forward or backward)
 		"				float sign = -1.;",
 		"               float minA = min(start_loc.x, min(start_loc.y, start_loc.z));",
 		"               float minB = min(start_loc_r.x, min(start_loc_r.y, start_loc_r.z));",
-		//"               vec3 checkSide = vec3(min(start_loc.x, 1. - start_loc.x), min(start_loc.y, 1. - start_loc.y), min(start_loc.z, 1. - start_loc.z)",
 		"               if(minA < minB) {",
 		"						checkVec = start_loc;",
 		"						sign *= -1.;",
 		"               }",
-		// Find out from which side we are entering the volume
-		"               if(checkVec.x < checkVec.y && checkVec.x < checkVec.z) {dir = vec3(1., 0., 0.); outColor.x = 0.5 + 0.5 * sign;}",
-		"               if(checkVec.y < checkVec.x && checkVec.y < checkVec.z) {dir = vec3(0., 1., 0.); outColor.y = 0.5 + 0.5 * sign;}",
-		"               if(checkVec.z < checkVec.y && checkVec.z < checkVec.x) {dir = vec3(0., 0., 1.); outColor.z = 0.5 + 0.5 * sign;}",
-		// Normalize depending on direction
+		// Find out how deep to go, depending on this fragment's cutting plange
 		"               float depth = u_numSlices[0] * dir[0] + u_numSlices[1] * dir[1] + u_numSlices[2] * dir[2];",
-		//"				gl_FragColor = outColor; return;",
 		"				dir *= sign;",
-		"				vec4 val = sample1(start_loc + u_slice / depth * dir);",
-		"				gl_FragColor =  apply_colormap(val);",
+		"				vec4 val = sampleTexture(start_loc + u_slice / depth * dir);",
+		"				gl_FragColor = apply_colormap(val);",
 		"       }",
 
 
 		"		void cast_iso(vec3 start_loc, vec3 step, int nsteps, vec3 view_ray) {",
-
 		"				gl_FragColor = vec4(0.0);	// init transparent",
 		"				vec4 color3 = vec4(0.0);	// final color",
+		"               vec4 val;",
 		"				vec3 dstep = 1.5 / u_size;	// step to sample derivative",
 		"				vec3 loc = start_loc;",
 		"				vec4 outColor = vec4(0.);",
@@ -390,16 +396,11 @@ var VolumeRenderShader1 = {
 		"				int found_2 = u_used_2;",
 		"				int found_3 = u_used_3;",
 
-		"				float low_threshold_0 = u_renderthreshold_0 - 0.02 * (u_clim_0[1] - u_clim_0[0]);",
-		"				float low_threshold_1 = u_renderthreshold_1 - 0.02 * (u_clim_1[1] - u_clim_1[0]);",
-		"				float low_threshold_2 = u_renderthreshold_2 - 0.02 * (u_clim_2[1] - u_clim_2[0]);",
-		"				float low_threshold_3 = u_renderthreshold_3 - 0.02 * (u_clim_3[1] - u_clim_3[0]);",
-
 		// Enter the raycasting loop. In WebGL 1 the loop index cannot be compared with
 		// non-constant expression. So we use a hard-coded max, and an additional condition
 		// inside the loop.
-		// Actually, we could do two things: calculate iso surface for each separately or just
-		// stop whenever we reached at least one surface.
+		// Actually, we could do two things: calculate iso surface for each separately (and
+		// mix colors) or just stop whenever we have reached at least one surface.
 		"				for (int iter=0; iter<MAX_STEPS; iter++) {",
 		"						if (iter >= nsteps)",
 		"								break;",
@@ -407,37 +408,31 @@ var VolumeRenderShader1 = {
 		// "								break;",
 
 		// Sample from the 3D texture
-		"						vec4 val = sample1(loc);",
+		"						val = sampleTexture(loc);",
 
-		"						if (found_0 > 0 && val[0] > low_threshold_0) {",
-		"								vec3 iloc = loc - 0.5 * step;",
-		"								outColor += add_lighting0(val[0], vec4(val[0],0,0,0), iloc, dstep, view_ray);",
+		"						if (found_0 > 0 && val[0] > u_renderthreshold_0) {",
+		"								outColor += add_lighting0(val[0], vec4(val[0],0,0,0), loc, dstep, view_ray);",
 		"                               break;", // Remove this for channel-wise iso surface
 		"								found_0 = 0;",
 		"						}",
 
-		"						if (found_1 > 0  && val[1] > low_threshold_1) {",
-		"								vec3 iloc = loc - 0.5 * step;",
-		"								outColor += add_lighting1(val[1], vec4(0, val[0],0,0), iloc, dstep, view_ray);",
+		"						if (found_1 > 0  && val[1] > u_renderthreshold_1) {",
+		"								outColor += add_lighting1(val[1], vec4(0, val[0],0,0), loc, dstep, view_ray);",
 		"                               break;", // Remove this for channel-wise iso surface
 		"								found_1 = 0;",
 		"						}",
 
-		"						if (found_2 > 0  && val[2] > low_threshold_2) {",
-		"								vec3 iloc = loc - 0.5 * step;",
-		"								outColor += add_lighting2(val[2], vec4(0,0,val[0],0), iloc, dstep, view_ray);",
+		"						if (found_2 > 0  && val[2] > u_renderthreshold_2) {",
+		"								outColor += add_lighting2(val[2], vec4(0,0,val[0],0), loc, dstep, view_ray);",
 		"                               break;", // Remove this for channel-wise iso surface
 		"								found_2 = 0;",
 		"						}",
 
-		"						if (found_3 > 0  && val[3] > low_threshold_3) {",
-		"								vec3 iloc = loc - 0.5 * step;",
-		"								outColor += add_lighting3(val[3], vec4(0,0,0,val[0]), iloc, dstep, view_ray);",
+		"						if (found_3 > 0  && val[3] > u_renderthreshold_3) {",
+		"								outColor += add_lighting3(val[3], vec4(0,0,0,val[0]), loc, dstep, view_ray);",
 		"                               break;", // Remove this for channel-wise iso surface
 		"								found_3 = 0;",
 		"						}",
-
-		// Advance location deeper into the volume
 		"						loc += step;",
 		"				}",
 		"				gl_FragColor = min(vec4(1., 1., 1., 1.), outColor);",
@@ -449,7 +444,7 @@ var VolumeRenderShader1 = {
 		
 		"								vec3 istep = step / float(REFINEMENT_STEPS);",
 		"								for (int i=0; i<REFINEMENT_STEPS; i++) {",
-		"										val = sample1(iloc).r;",
+		"										val = sampleTexture(iloc).r;",
 		"										if (val > u_renderthreshold) {",
 		"												gl_FragColor = add_lighting(val, 0, iloc, dstep, view_ray);",
 		"												return;",
@@ -457,115 +452,7 @@ var VolumeRenderShader1 = {
 		"										iloc += istep;",
 		"								}",
 		*/
-
-		
-		/*
-		"		vec4 add_lightingAll(vec4 val, vec3 loc, vec3 step, vec3 view_ray)",
-		"		{",
-		// Calculate color by incorporating lighting
-
-		// View direction
-		"				vec3 V = normalize(view_ray);",
-
-		// calculate normal vector from gradient (each is vec4, containing normals for the datasets)
-		"				vec4 N0, N1, N2;",
-		"				float val1, val2;",
-		"				val1 = sample1(loc + vec3(-step[0], 0.0, 0.0));",
-		"				val2 = sample1(loc + vec3(+step[0], 0.0, 0.0));",
-		"				N0 = val1 - val2;",
-		"				val = vmax(vmax(val1, val2), val);",
-		"				val1 = sample1(loc + vec3(0.0, -step[1], 0.0));",
-		"				val2 = sample1(loc + vec3(0.0, +step[1], 0.0));",
-		"				N1 = val1 - val2;",
-		"				val = vmax(vmax(val1, val2), val);",
-		"				val1 = sample1(loc + vec3(0.0, 0.0, -step[2]));",
-		"				val2 = sample1(loc + vec3(0.0, 0.0, +step[2]));",
-		"				N2 = val1 - val2;",
-		"				val = max(max(val1, val2), val);",
-
-		// Normals for each color channel
-		"				vec3 N_0 = vec3(N0[0], N1[0], N2[0]);",
-		"				vec3 N_1 = vec3(N0[1], N1[1], N2[1]);",
-		"				vec3 N_2 = vec3(N0[2], N1[2], N2[2]);",
-		"				vec3 N_3 = vec3(N0[3], N1[3], N2[3]);",
-
-		"				float gm_0 = length(N_0);",
-		"				float gm_1 = length(N_1);",
-		"				float gm_2 = length(N_2);",
-		"				float gm_3 = length(N_3);",
-
-		"				N_0 = normalize(N_0);",
-		"				N_1 = normalize(N_1);",
-		"				N_2 = normalize(N_2);",
-		"				N_3 = normalize(N_3);",
-
-		// Flip normal so it points towards viewer
-		"				float Nselect_0 = float(dot(N_0, V) > 0.0);",
-		"				float Nselect_1 = float(dot(N_1, V) > 0.0);",
-		"				float Nselect_2 = float(dot(N_2, V) > 0.0);",
-		"				float Nselect_3 = float(dot(N_3, V) > 0.0);",
-
-		"				N_0 = (2.0 * Nselect_0 - 1.0) * N_0;",
-		"				N_1 = (2.0 * Nselect_1 - 1.0) * N_1;",
-		"				N_2 = (2.0 * Nselect_2 - 1.0) * N_2;",
-		"				N_3 = (2.0 * Nselect_3 - 1.0) * N_3;",
-
-		// Just a simplified model:
-		"				vec3 L = normalize(view_ray);	//lightDirs[i];",
-		"				vec3 H = normalize(L+V); // Halfway vector",
-		"				float lambertTerm_0 = clamp(dot(N_0, L), 0.0, 1.0);",
-		"				float lambertTerm_1 = clamp(dot(N_1, L), 0.0, 1.0);",
-		"				float lambertTerm_2 = clamp(dot(N_2, L), 0.0, 1.0);",
-		"				float lambertTerm_3 = clamp(dot(N_3, L), 0.0, 1.0);",
-		"				float specularTerm_0 = pow(max(dot(H, N_0), 0.0), shininess);",
-		"				float specularTerm_1 = pow(max(dot(H, N_1), 0.0), shininess);",
-		"				float specularTerm_2 = pow(max(dot(H, N_2), 0.0), shininess);",
-		"				float specularTerm_3 = pow(max(dot(H, N_3), 0.0), shininess);",
-
-		"				vec4 color = apply_colormap(val);",
-		"				return vec4( color[0] * ( lambertTerm_0 + specularTerm_0 ),",
-		"							 color[1] * ( lambertTerm_1 + specularTerm_1 ),",
-		"							 color[2] * ( lambertTerm_2 + specularTerm_2 ),",
-		"							 color[3] * ( lambertTerm_3 + specularTerm_3 ) );",
-
-		/*
-		// Init colors
-		"				vec4 ambient_color = vec4(0.0, 0.0, 0.0, 0.0);",
-		"				vec4 diffuse_color = vec4(0.0, 0.0, 0.0, 0.0);",
-		"				vec4 specular_color = vec4(0.0, 0.0, 0.0, 0.0);",
-
-		// note: could allow multiple lights
-		"				for (int i=0; i<1; i++)",
-		"				{",
-								 // Get light direction (make sure to prevent zero devision)
-		"						vec3 L = normalize(view_ray);	//lightDirs[i];",
-		"						float lightEnabled = float( length(L) > 0.0 );",
-		"						L = normalize(L + (1.0 - lightEnabled));",
-
-		// Calculate lighting properties
-		"						float lambertTerm = clamp(dot(N, L), 0.0, 1.0);",
-		"						vec3 H = normalize(L+V); // Halfway vector",
-		"						float specularTerm = pow(max(dot(H, N), 0.0), shininess);",
-
-		// Calculate mask
-		"						float mask1 = lightEnabled;",
-
-		// Calculate colors
-		"						ambient_color +=	mask1 * ambient_color;	// * gl_LightSource[i].ambient;",
-		"						diffuse_color +=	mask1 * lambertTerm;",
-		"						specular_color += mask1 * specularTerm * specular_color;",
-		"				}",
-		
-
-		// Calculate final color by componing different components
-		"				vec4 final_color;",
-		"				vec4 color = apply_colormap(val);",
-		"				final_color = color * (ambient_color + diffuse_color) + specular_color;",
-		"				final_color.a = color.a;",
-		"				return final_color;",
-		
-		"		}",
-		*/
+	
 		""
 	].join( "\n" ),
 
@@ -580,46 +467,46 @@ var VolumeRenderShader1 = {
 
 	lighting: [ 'vec4 add_lightingCOMPONENT(float val, vec4 valVec, vec3 loc, vec3 step, vec3 view_ray)',
 		'{',
-				// Calculate color by incorporating lighting
-				// View direction
 		'		vec3 V = normalize(view_ray);',
-					// calculate normal vector from gradient
+		// calculate normal vector from gradient
 		'		vec3 N;',
 		'		float val1, val2;',
-		'		val1 = sample1(loc + vec3(-step[0], 0.0, 0.0))[COMPONENT];',
-		'		val2 = sample1(loc + vec3(+step[0], 0.0, 0.0))[COMPONENT];',
+		'		val1 = sampleTexture(loc + vec3(-step[0], 0.0, 0.0))[COMPONENT];',
+		'		val2 = sampleTexture(loc + vec3(+step[0], 0.0, 0.0))[COMPONENT];',
 		'		N[0] = val1 - val2;',
 		'		val = max(max(val1, val2), val);',
-		'		val1 = sample1(loc + vec3(0.0, -step[1], 0.0))[COMPONENT];',
-		'		val2 = sample1(loc + vec3(0.0, +step[1], 0.0))[COMPONENT];',
+		'		val1 = sampleTexture(loc + vec3(0.0, -step[1], 0.0))[COMPONENT];',
+		'		val2 = sampleTexture(loc + vec3(0.0, +step[1], 0.0))[COMPONENT];',
 		'		N[1] = val1 - val2;',
 		'		val = max(max(val1, val2), val);',
-		'		val1 = sample1(loc + vec3(0.0, 0.0, -step[2]))[COMPONENT];',
-		'		val2 = sample1(loc + vec3(0.0, 0.0, +step[2]))[COMPONENT];',
+		'		val1 = sampleTexture(loc + vec3(0.0, 0.0, -step[2]))[COMPONENT];',
+		'		val2 = sampleTexture(loc + vec3(0.0, 0.0, +step[2]))[COMPONENT];',
 		'		N[2] = val1 - val2;',
 		'		val = max(max(val1, val2), val);',
 		'		float gm = length(N); // gradient magnitude',
 		'		N = normalize(N);',
-					// Flip normal so it points towards viewer
+		// Flip normal so it points towards viewer
 		'		float Nselect = float(dot(N, V) > 0.0);',
 		'		N = (2.0 * Nselect - 1.0) * N;  // ==  Nselect * N - (1.0-Nselect)*N;',
-					// Init colors
-		'		vec4 ambient_color = vec4(0.0, 0.0, 0.0, 0.0);',
-		'		vec4 diffuse_color = vec4(0.0, 0.0, 0.0, 0.0);',
-		'		vec4 specular_color = vec4(0.0, 0.0, 0.0, 0.0);',
-					// Get light direction (make sure to prevent zero devision)
 		'		vec3 L = normalize(view_ray);',
 		'		float lightEnabled = float( length(L) > 0.0 );',
 		'		L = normalize(L + (1.0 - lightEnabled));',
-					// Calculate lighting properties
+		// Calculate lighting properties
 		'		float lambertTerm = clamp(dot(N, L), 0.0, 1.0);',
 		'		vec3 H = normalize(L+V); // Halfway vector',
 		'		float specularTerm = pow(max(dot(H, N), 0.0), shininess);',
-					// Calculate final color by componing different components
 		'		vec4 color = vec4(0.);',
-		'		color[COMPONENT] = 1.;',
+		// Before applying the color map, set the value to something constant near the max. Reasons:
+		// - if you chose a custom color, we will use (almost exactly) this color (no matter how the 
+		//   current contrast/gamma settings are)
+		// - if you chose a texture (colormap), the max value is often just "white", so by 0.9 instead
+		//   of 1 we hopefully have at least a color that's "somehow representing" the colormap.
+		// - if we would choose not a constant value, but the local value, we would basically see
+		//   noise, since for a iso surface it actually should be a constant color anyway and all
+		//   we see here are numerical deviations from this perfect intensity
+		'		color[COMPONENT] = 0.9;', 
 		'		color = apply_colormap(color);',
-		'		color *= (lambertTerm + specularTerm);// * (ambient_color + diffuse_color) + specular_color;',
+		'		color *= (lambertTerm + specularTerm);',
 		'		return color;',
 		'}',
 		''
@@ -627,18 +514,15 @@ var VolumeRenderShader1 = {
 
 
 	getSampler2D : function(numSlices) {
-		var s = [];
-		//s.push("		int z = int(texcoords.z * float(u_numSlices.z));")
-		s.push("		int z = int(min(u_numSlices.z - 1., max(0., texcoords.z * u_numSlices.z)));")
-		s.push("		int offsetX = int(mod(float(z), u_grid2D.x));")
-		s.push("		int offsetY = int(z / int(u_grid2D.x));")
-		s.push("		vec2 newCoords = vec2(float(offsetX), float(offsetY)) + texcoords.xy;")
-		//s.push("		vec2 newCoords = texcoords.xy;")
-		s.push("		newCoords /= u_grid2D;") // Scale to new tex coords in 0/1
-		s.push("	    return texture2D(u_data, newCoords);" );
-		//s.push("		return vec4(z);" );
-		
-		return s.join( "\n" );
+		return [
+		'		int z = int(min(u_numSlices.z - 1., max(0., texcoords.z * u_numSlices.z)));',
+		'		int offsetX = int(mod(float(z), u_grid2D.x));',
+		'		int offsetY = int(z / int(u_grid2D.x));',
+		'		vec2 newCoords = vec2(float(offsetX), float(offsetY)) + texcoords.xy;',
+		// Scale to new tex coords in 0/1
+		'		newCoords /= u_grid2D;',
+		'		return texture2D(u_data, newCoords);',
+		''].join( "\n" );
 	},
 
 	
@@ -663,8 +547,6 @@ var VolumeRenderShader1 = {
 			// 
 		}
 		shader = shader.replace("/***lightingFunctions***/", lightingFunctions)
-		console.log(lightingFunctions)
-		console.log(shader);
 		return shader;
 	}
 };

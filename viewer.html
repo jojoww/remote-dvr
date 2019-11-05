@@ -11,6 +11,7 @@
         <script src="includes/wavelengthToHex.js"></script>
         <script src="includes/jszip.min.js"></script>
         <script src="includes/FileSaver.min.js"></script>
+        <script src="includes/stats.min.js"></script>
 
         <style></style>
     </head>
@@ -45,7 +46,7 @@
                         </div>
                     </div>
                     <div class="row" id="cameraRotationSliderRow">
-                        <div class="col-2">Spin cam (y):</div>
+                        <div class="col-2">Rotate (y):</div>
                         <div class="col-sm">
                             <input type="number" min="0" max="360" value="0.0" step="0.1" class="form-control-sm" name="cameraSliderNumeric" oninput="javascript:processSliderNumericInput(this)" />
                             <input type="range" min="0" max="360" value="0.0" step="0.1" class="slider" name="cameraSlider" oninput="javascript:setCamera(processSliderInput(this));" />
@@ -207,6 +208,7 @@
             var samplingRate = url.searchParams.get('samplingRate');
             var useByte = url.searchParams.get('useByte') == 1 ? true : false;
             var downscale = url.searchParams.get('downscale');
+            var showFps = url.searchParams.get('fps') !== null;
 
 
             if (configUrl === null) alert('Please provide the URL of a configuration file!');
@@ -218,6 +220,7 @@
             // The webGL elements
             var context, renderer, scene, camera, controls, material, cmtextures, texture, canvas, mesh;
             var renderer2, scene2, camera2;
+            var stats;
 
 
 
@@ -264,12 +267,21 @@
                 canvas = document.createElement('canvas');
                 context = canvas.getContext(webglMode == 2 ? 'webgl2' : 'webgl1', { alpha: false, antialias: false });
 
-                renderer = new THREE.WebGLRenderer({ canvas: canvas, context: context, preserveDrawingBuffer: true });
+                renderer = new THREE.WebGLRenderer({ 
+                    canvas: canvas, 
+                    context: context, 
+                    preserveDrawingBuffer: true, // Seems important for screenshots
+                    powerPreference: "high-performance" });
                 renderer.setClearColor(0x282828); // Background color
                 renderer.setPixelRatio(window.devicePixelRatio); // High DPI screen?
                 renderer.setSize(canvasHolder.clientWidth, canvasHolder.clientHeight);
                 canvasHolder.appendChild(renderer.domElement);
 
+                if(showFps) {
+                    stats = new Stats();
+                    stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+                    document.body.appendChild( stats.dom );
+                }
                 // Create orthographics camera. Perspective won't work with raycasting. (Could be done, somehow, but...)
                 var h = 1024; // Height of the view, which is sort of the "zoom level". TODO: maybe update it after data loading?
                 var aspect = canvasHolder.clientWidth / canvasHolder.clientHeight;
@@ -614,8 +626,8 @@
                 var numXY = parseInt(worldDimensions[1] / downscale) * numX;
                 var numXYOrig = img.datasize[1] * numXOrig;
                 if (!this.useSampler3D) {
-                    numX = parseInt((this.sampler2DGridX * worldDimensions[0]) / downscale);
-                    numXY = parseInt((worldDimensions[1] * this.sampler2DGridY * numX) / downscale); // not needed in that case
+                    numX = this.sampler2DGridX * parseInt(worldDimensions[0] / downscale);
+                    numXY = this.sampler2DGridY * numX * parseInt(worldDimensions[1] / downscale); // not needed in that case
                 }
 
                 var toX, toY, toZ, val;
@@ -783,12 +795,10 @@
              * The render loop
              */
             function render() {
-                if( isRendering ) {
-                    console.log("Skip this frame, still busy");
-                    return;
+                if(showFps) {
+                    stats.begin();
                 }
-                isRendering = true;
-                console.log("Render");
+
                 renderer.render(scene, camera);
 
                 // Update the axes view to the current camera settings
@@ -797,17 +807,17 @@
                 camera2.position.setLength(2);
                 camera2.lookAt(scene2.position);
                 renderer2.render(scene2, camera2);
-                isRendering = false;
-                //requestAnimationFrame( render );
+
+                if(showFps) {
+                    stats.end();
+                }
+                //requestAnimationFrame( render ); // Alternative: loop, rendering all the time
             }
 
             /**
-             * This one is called whenever something in the scene is changed. However, we 
-             * currently don't need it since we use a render loop that automatically 
-             * repaints the scene whenever possible. (An alternative approach would be to
-             * not use an automated render loop but to call the render command each time
-             * something has changed)
-            */
+             * This one is called whenever something in the scene is changed. By this approach,
+             * we only re-render the scene on demand (instead of permanently).
+             */
             function renderCall() {
                 requestAnimationFrame(render);
             }
