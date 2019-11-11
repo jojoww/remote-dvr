@@ -196,7 +196,7 @@
             import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js?v=12';
             import { WEBGL } from './includes/examples/jsm/WebGL.js';
 
-            // Check availability of WebGL 2.0. We need 2.0 since WebGL 1.0 does
+            // Check availability of WebGL 2.0. We prefer 2.0 since WebGL 1.0 does
             // not know 3D textures.
             var webglMode = WEBGL.isWebGL2Available() ? 2 : WEBGL.isWebGLAvailable() ? 1 : 0;
             console.log('WebGL available? ', webglMode);
@@ -209,7 +209,6 @@
             var useByte = url.searchParams.get('useByte') == 1 ? true : false;
             var downscale = url.searchParams.get('downscale');
             var showFps = url.searchParams.get('fps') !== null;
-
 
             if (configUrl === null) alert('Please provide the URL of a configuration file!');
             if (dataUrl === null) alert("Please provide the URL of the data server's root location!");
@@ -224,8 +223,8 @@
 
 
 
-            // Most image information are stored in "images". Besides that we created some helpers that
-            // store advanced information and relations between images and channels.
+            // Most image information are stored in variable "images". Besides that we created some 
+            // helpers that store advanced information and relations between images and channels.
             // Note, a channel must be filled by at least one image, but also multiple images could be
             // used to create a stitched view on the data. The world dimension is derived from the
             // maximum image size and the maximum image offset.
@@ -360,7 +359,7 @@
                             numChannels = 0;
                             var largestDim = [0, 0, 0];
                             smallestOffset = [99999, 99999, 99999];
-                            var imageScale = data.pixelsize;
+                            worldScale = data.pixelsize;
 
                             for (var i = 0; i < data.images.length; i++) {
                                 var img = data.images[i]; // less typing...
@@ -380,9 +379,9 @@
                             for (var i = 0; i < data.images.length; i++) {
                                 var img = data.images[i]; // less typing...
                                 
-                                var imageRange = [img.datasize[0] + Math.ceil((img.offset[0] - smallestOffset[0]) / imageScale[0]),
-                                                 img.datasize[1] + Math.ceil((img.offset[1] - smallestOffset[1]) / imageScale[1]),
-                                                 img.datasize[2] + Math.ceil((img.offset[2] - smallestOffset[2]) / imageScale[2])]
+                                var imageRange = [img.datasize[0] + Math.ceil((img.offset[0] - smallestOffset[0]) / worldScale[0]),
+                                                 img.datasize[1] + Math.ceil((img.offset[1] - smallestOffset[1]) / worldScale[1]),
+                                                 img.datasize[2] + Math.ceil((img.offset[2] - smallestOffset[2]) / worldScale[2])]
                                 console.log("Image range of image", i, "is", imageRange)
                                 largestDim[0] = Math.max(largestDim[0], imageRange[0]);
                                 largestDim[1] = Math.max(largestDim[1], imageRange[1]);
@@ -517,9 +516,11 @@
                 var shader = VolumeRenderShader1;
                 var uniforms = THREE.UniformsUtils.clone(shader.uniforms);
 
-                var volX = x * xScale;
-                var volY = y * yScale;
-                var volZ = z * zScale;
+                // Normalizing by the smalles dimension avoids unnecessary sampling steps
+                var minDim = Math.min(xScale, yScale, zScale);
+                var volX = x * xScale / minDim; 
+                var volY = y * yScale / minDim;
+                var volZ = z * zScale / minDim;
 
                 // Now update these uniforms about which we have learned something new.
                 uniforms['u_data'].value = texture;
@@ -613,6 +614,7 @@
                 var offsetX = Math.round((img.offset[0] - smallestOffset[0]) / worldScale[0]);
                 var offsetY = Math.round((img.offset[1] - smallestOffset[1]) / worldScale[1]);
                 var offsetZ = Math.round((img.offset[2] - smallestOffset[2]) / worldScale[2]);
+                console.log("Place image at offset", offsetX, offsetY, offsetZ);
                 var flipX = img.flipping[0];
                 var flipY = img.flipping[1];
                 var flipZ = img.flipping[2];
