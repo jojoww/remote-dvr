@@ -193,7 +193,7 @@
             import * as THREE from './includes/build/three.module.js';
             import { OrbitControls } from './includes/examples/jsm/controls/OrbitControls.js';
             import { TrackballControls } from './includes/examples/jsm/controls/TrackballControls.js';
-            import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js?v=12';
+            import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js?v=22';
             import { WEBGL } from './includes/examples/jsm/WebGL.js';
 
             // Check availability of WebGL 2.0. We prefer 2.0 since WebGL 1.0 does
@@ -220,6 +220,9 @@
             var context, renderer, scene, camera, controls, material, cmtextures, texture, canvas, mesh;
             var renderer2, scene2, camera2;
             var stats;
+
+            var cameraDist = 500; // Camera must be far away from the data to avoid clipping (=voxel space)
+            var allowPan = false; // We disable the option to move the geometry away
 
 
 
@@ -268,9 +271,10 @@
 
                 renderer = new THREE.WebGLRenderer({ 
                     canvas: canvas, 
-                    context: context, 
-                    preserveDrawingBuffer: true, // Seems important for screenshots
-                    powerPreference: "high-performance" });
+                    context: context 
+                    //preserveDrawingBuffer: true, // Seems important for screenshots
+                    //powerPreference: "high-performance"
+                 });
                 renderer.setClearColor(0x282828); // Background color
                 renderer.setPixelRatio(window.devicePixelRatio); // High DPI screen?
                 renderer.setSize(canvasHolder.clientWidth, canvasHolder.clientHeight);
@@ -284,9 +288,9 @@
                 // Create orthographics camera. Perspective won't work with raycasting. (Could be done, somehow, but...)
                 var h = 1024; // Height of the view, which is sort of the "zoom level". TODO: maybe update it after data loading?
                 var aspect = canvasHolder.clientWidth / canvasHolder.clientHeight;
-                camera = new THREE.OrthographicCamera((-h * aspect) / 2, (h * aspect) / 2, h / 2, -h / 2, 0, 999999);
+                camera = new THREE.OrthographicCamera((-h * aspect) / 2, (h * aspect) / 2, h / 2, -h / 2, 0, 99999999);
                 // The camera must have a distance large enough from the data (e.g. 5000), otherwise annoying clipping can occur.
-                camera.position.set(0, 0, 5000);
+                camera.position.set(0, 0, cameraDist);
                 camera.up.set(0, 1, 0);
                 initInset();
 
@@ -296,6 +300,7 @@
                 controls.target.set(64, 64, 128);
                 controls.minZoom = 0.1;
                 controls.maxZoom = 100;
+                controls.enablePan = allowPan; 
                 controls.update();
 
                 /*
@@ -430,10 +435,10 @@
             function initTexture() {
                 var x = parseInt(worldDimensions[0] / downscale);
                 var y = parseInt(worldDimensions[1] / downscale);
-                var z = worldDimensions[2]; // usually z is smaller, thus we only scale x/y 
+                var z = parseInt(worldDimensions[2] / downscale); // usually z is smaller, thus we only scale x/y 
                 var xScale = worldScale[0] * downscale;
                 var yScale = worldScale[1] * downscale;
-                var zScale = worldScale[2];
+                var zScale = worldScale[2] * downscale;
 
                 // THREE.js/WebGL seems to be quite restriced regarding data types and texture layout.
                 // First, it is unable to use any 2 byte type. Hence we have to use either ubyte or float32.
@@ -489,7 +494,6 @@
                     texture.type = THREE.FloatType;
                     //texture.format = THREE.RedFormat; // TODO: maybe float single channel must be RedFormat
                 }
-
                 if (numChannelsGPU == 1) {
                     texture.format = THREE.LuminanceFormat;
                 } else if (numChannelsGPU == 3) {
@@ -545,6 +549,7 @@
 
                 // A box with the size of the data. We will use its walls as canvas for rendering.
                 var geometry = new THREE.BoxBufferGeometry(volX, volY, volZ);
+                console.log(geometry);
                 geometry.translate(volX / 2, volY / 2, volZ / 2); // Or plus -0.5 per component, as in example?
                 mesh = new THREE.Mesh(geometry, material);
 
@@ -641,7 +646,7 @@
                         for (var x = 0; x < img.datasize[0]; x++) {
                             // In case we allow downsampling, skip everything except every n^th
                             if (downscale > 1) {
-                                if (x % downscale !== 0 || y % downscale !== 0) {
+                                if (x % downscale !== 0 || y % downscale !== 0 || z % downscale !== 0) {
                                     continue;
                                 }
                             }
@@ -675,6 +680,7 @@
                             if (downscale > 1) {
                                 toX = parseInt(toX / downscale);
                                 toY = parseInt(toY / downscale);
+                                toZ = parseInt(toZ / downscale);
                             }
 
                             // In case we use 2D sampler, the position must be changed. In this mode, we
@@ -861,7 +867,7 @@
              */
             function takeScreenshot() {
                 if (noTextureLoaded) return;
-                renderer.renderCall(scene, camera);
+                renderer.render(scene, camera);
                 addScreenshot(renderer.domElement.toDataURL());
             }
             window.takeScreenshot = takeScreenshot;
@@ -917,7 +923,7 @@
                 showRotationCamSlider();
                 // Enable rotation and pan (could have been disabled by slice view)
                 controls.enableRotate = true;
-                controls.enablePan = true;
+                controls.enablePan = allowPan;
                 hideSliceAndIsoSlider();
                 material.uniforms['u_renderstyle'].value = 0;
                 renderCall();
@@ -931,7 +937,7 @@
                 showRotationCamSlider();
                 // Enable rotation and pan (could have been disabled by slice view)
                 controls.enableRotate = true;
-                controls.enablePan = true;
+                controls.enablePan = allowPan;
                 hideSliceAndIsoSlider();
                 material.uniforms['u_renderstyle'].value = 3;
                 renderCall();
@@ -946,7 +952,7 @@
                 hideSliceAndIsoSlider();
                 // Enable rotation and pan (could have been disabled by slice view)
                 controls.enableRotate = true;
-                controls.enablePan = true;
+                controls.enablePan = allowPan;
 
                 showIsoSlider();
                 material.uniforms['u_renderstyle'].value = 1;
@@ -986,7 +992,7 @@
                 var angle = (val / 180) * Math.PI;
                 var x = Math.cos(angle);
                 var z = Math.sin(angle);
-                var newPos = new THREE.Vector3(x * 5000, 0, z * 5000);
+                var newPos = new THREE.Vector3(x * cameraDist, 0, z * cameraDist);
                 var center = new THREE.Vector3(controls.target.x, controls.target.y, controls.target.z);
                 newPos.add(center);
                 camera.position.set(newPos.x, newPos.y, newPos.z);
@@ -1065,7 +1071,7 @@
 
             /**
              * Enable the slice view (cutting planes).
-             * @param {string} type Which slice/orentation, can be "x", "y", "z"
+             * @param {string} type Which slice/orientation, can be "x", "y", "z"
              */
             function enableSlice(type) {
                 hideSliceAndIsoSlider();
@@ -1082,17 +1088,17 @@
                     setSliceSliderRange(worldDimensions[0]);
                     setCamera(90);
                     /*
-                    camera.position.set(5000, controls.target.y, controls.target.z);
+                    camera.position.set(cameraDist, controls.target.y, controls.target.z);
                     camera.quaternion.set(0.5, 0.5, 0.5, 0.5);*/
                 } else if (type == 'y') {
                     setSliceSliderRange(worldDimensions[1]);
-                    camera.position.set(controls.target.x, 5000, controls.target.z);
+                    camera.position.set(controls.target.x, cameraDist, controls.target.z);
                     camera.quaternion.set(0, 1 / Math.sqrt(2), 1 / Math.sqrt(2), 0);
                 } else {
                     setSliceSliderRange(worldDimensions[2]);
                     setCamera(0);
                     /*
-                    camera.position.set(controls.target.x, controls.target.y, 5000);
+                    camera.position.set(controls.target.x, controls.target.y, cameraDist);
                     camera.quaternion.set(0, 0, 0, 1);*/
                 }
                 material.uniforms['u_renderstyle'].value = 2;

@@ -71,9 +71,11 @@
 
     <body>
         <div class="centerBox">
-            Please enter the URLs of config/data locations and select the data type. Float32 has higher precision but requires four times the memory. 
-            Furthermore, you can set a scale for the sampling rate. Value "2" will sample twice per pixel, which increases image quality,
-            and value "0.5" will only sample once every two pixels.<br /><br />
+            Please enter the URLs of config/data locations. <br /> <br />
+            Sampling rate: How often a voxel is sampled. For example, value "2" will sample twice per pixel, which increases image quality,
+            and value "0.5" will only sample once every two pixels, which increases speed.<br /><br />
+            Downscaling factor: A value of 1 will show the full data set, value 2 only every second position along x, y, z (hence, 1/8 of the data); value 3 only considers every third position, and so on. <br /> <br />
+            Data type: Float32 has higher precision but requires four times the memory. <br /><br />
             <div class="row topSpace">
                 <div class="col-6">
                     Config file URL
@@ -100,7 +102,15 @@
             </div>
             <div class="row topSpace">
                 <div class="col-6">
-                    Type
+                    Downscaling factor
+                </div>
+                <div class="col-6">
+                    <input type="number" value="1" min="1" max="16" step="1" id="downscalingField" />
+                </div>
+            </div>
+            <div class="row topSpace">
+                <div class="col-6">
+                    Data type
                 </div>
                 <div class="col-6">
                     <div class="form-group">
@@ -125,6 +135,11 @@
             </div>
         </div>
         <script>
+            // Set defaults that hopefully match many cases
+            var myUrl = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '');
+            document.getElementById('configUrlField').value = myUrl + "/data/config.json";
+            document.getElementById('dataUrlField').value = myUrl + "/data/";
+
             /**
              * Takes all user inputs and appends them to the URL
              */
@@ -133,9 +148,11 @@
                 var dataUrl = document.getElementById('dataUrlField').value;
                 var useByte = document.getElementById('customRadio1').checked;
                 var samplingRate = document.getElementById('samplingRateField').value;
+                var downscale = document.getElementById('downscalingField').value;
                 location.href = 'viewer.html?configUrl=' + encodeURI(configUrl)
                                          + '&useByte=' + (useByte ? '1' : '0') 
                                          + '&dataUrl=' + encodeURI(dataUrl) 
+                                         + '&downscale=' + encodeURI(downscale) 
                                          + "&samplingRate=" + encodeURI(samplingRate);
             }
         </script>

@@ -73,6 +73,8 @@ var VolumeRenderShader1 = {
 		"u_cmdata_3": { value: null }
 	},
 	vertexShader: [
+		"		precision highp float;",
+		"		precision highp int;",
 		"		varying vec4 v_nearpos;",
 		"		varying vec4 v_farpos;",
 		"		varying vec3 v_position;",
@@ -149,9 +151,9 @@ var VolumeRenderShader1 = {
 		"		}",
 	].join( "\n" ),
 	fragmentShader: [
-		"		precision mediump float;",
-		"		precision mediump int;",
-		"		precision mediump /***samplerDeclaration***/;",
+		"		precision highp float;",
+		"		precision highp int;",
+		"		precision highp /***samplerDeclaration***/;",
 
 		"		uniform vec3 u_size;",
 		"		uniform vec3 u_numSlices;",
@@ -240,10 +242,10 @@ var VolumeRenderShader1 = {
 		// Now we have the starting position on the front surface
 		"				vec3 front = v_position + view_ray * distance;",
 		
-		// Decide how many steps to take
+		// Decide how many steps to take. Go at least 2, otherwise it doesn't really make sense
 		"				int nsteps = int(u_samplingRate * -distance / relative_step_size + 0.5);",
-		"				if ( nsteps < 1 )",
-		"						discard;",
+		"				if (nsteps < 3) {", // nsteps < 1 
+		"						discard;}",
 		
 		// Get starting location and step vector in texture coordinates
 		// Note: u_size contains the data dimension in "microns" (not texture space). For
@@ -254,6 +256,7 @@ var VolumeRenderShader1 = {
 		// bigger than 1. However, it's easier to understand. As long as we normalize the
 		// voxel dimension to make the smallest component equal 1, it should be okay.
 		"				vec3 step = ((v_position - front) / u_size) / float(nsteps);",
+
 		"				vec3 start_loc = front / u_size;",
 		"				if (u_renderstyle == 0)",
 		"						cast_mip(start_loc, step, nsteps, view_ray);",
@@ -275,7 +278,6 @@ var VolumeRenderShader1 = {
 		// Will be replaced automatically, since we have to have basically the same function 
 		// just with different vector components (x, y, z, w). Just for convenience.
 		"/***lightingFunctions***/",
-
 		
 		// This function reduces saturation of fully saturated channels a little bit, otherwise
 		// shading could look pretty ugly (no highlights etc.)
@@ -311,7 +313,6 @@ var VolumeRenderShader1 = {
 		"				if(u_used_3 != 0) outV += desaturate((u_colormode_3 == 1) ? (val_3 * vec4(u_customcolor_3, 1.)) : texture2D(u_cmdata_3, vec2(val_3, 0.5)));",
 		"				return clamp(outV, 0., 1.);",
 		"		}",
-
 
 		// MIP - walk through the volume and remember "the brightest" spot
 		"		void cast_mip(vec3 start_loc, vec3 step, int nsteps, vec3 view_ray) {",
