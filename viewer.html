@@ -1448,7 +1448,7 @@
                 var outFolder = zip.folder('images');
 
                 for (var i = 0; i < images.length; i++) {
-                    outFolder.file(i + '.jpg', images[i].src.replace('data:image/png;base64,', ''), { base64: true });
+                    outFolder.file(i + '.png', images[i].src.replace('data:image/png;base64,', ''), { base64: true });
                 }
                 zip.generateAsync({ type: 'blob' }).then(function(file) {
                     saveAs(file, 'images.zip');
