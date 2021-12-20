@@ -481,6 +481,7 @@ export class RemoteDVR {
                     if (parameters.useByte) {
                         val = parseInt(val * 255);
                     }
+                    console.log(x, y, z, val)
                     toX = x;
                     toY = y;
                     toZ = z;
@@ -517,6 +518,7 @@ export class RemoteDVR {
                         toY = xy2D[1];
                         toZ = 0;
                     }
+                    console.log("copy to", (toX + toY * numX + toZ * numXY) * parameters.numChannelsGPU + channel, val)
                     parameters.texture.image.data[(toX + toY * numX + toZ * numXY) * parameters.numChannelsGPU + channel] = val;
                 }
             }
@@ -580,6 +582,7 @@ export class RemoteDVR {
                 parameters.setLoadingStatus = this.setLoadingStatusCallback;
                 parameters.downscale = this.downscale;
                 parameters.smallestOffset = this.smallestOffset;
+                parameters.numChannelsGPU = this.numChannelsGPU;
                 
                 loader.load(url, (data) => this.handleTextureData(data, parameters), (value) => this.loadingStatus(value, parameters));
             }
@@ -630,12 +633,10 @@ export class RemoteDVR {
      * The render loop
      */
     render() {
-        console.log("render showfps", this)
         this.showFps = false;
         if (this.showFps) {
             stats.begin();
         }
-        console.log("render showfps done")
 
         this.renderer.render(this.scene, this.camera);
 
