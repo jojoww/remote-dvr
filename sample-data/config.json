@@ -1,0 +1,11 @@
+{
+    "pixelsize": [2.6, 2.6, 2.0],
+    "images": [
+        {"url": "#/data.raw",
+         "timestamp" : "image id 031201",
+         "wavelength" : "488",
+         "offset" : [0, 0, 0],
+         "datasize" : [512, 512, 370],
+         "flipping" : [false, false, false]}
+    ]
+}

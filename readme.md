@@ -3,12 +3,14 @@ This tool provides a quick overview of 3D data (e.g. microscope images) that is 
 
 ## For the end user
 This program should be provided by a server, for example over the URL http://localhost/viewer. Open this URL in Chrome or a similar browser that supports WebGL 2.0 (preferred) or at least WebGL 1.0 (resulting in worse image quality). 
+
+(A quick way to provide a server is using python3: First, open a terminal in the folder containing these files. Then, type 'python -m http.server 1234' to open a webserver at port 1234 pointing to the current directory. The address of the folder would then be 'http:/localhost:1234/')
  
 ### Step 1: Configuration
 The first view is a configuration page where you have to enter multiple information:
 
-- The URL of a configuration file, also on a web server, e.g. http://localhost/data/config.json
-- The URL of the data root folder, also on a web server, e.g. http://localhost/data/
+- The URL of a configuration file, also on a web server, e.g. http://localhost/samplple-data/config.json
+- The URL of the data root folder, also on a web server, e.g. http://localhost/samplple-data/
 - A sampling rate for the volume rendering. Value 1 means that every pixel is sampled at least once. Value 2 means oversampling, hence every pixel is sampled at least twice. Lower values lead to skipped pixels: value 0.1 means only one of 10 pixels is considered. A value of 1 is recommended, but lower values can tremendously increase rendering speed. Note: This does NOT affect the view of cutting planes - they always have high quality.
 - Type of the data. Uint8 means that each channel is converted to 256 intensity levels. Float32 offers much higher precision but requires four times the memory on the graphics card. Although it is below the resolution of the microscope's camera, uint8 should be sufficient for most images. Note, the program stretches the histogram (and cuts off unused intensity values at the upper side of the intensity range) to maximize the dynamic range.
 
@@ -37,7 +39,7 @@ This tool requires a configuration file, which provides basic information about 
 {
     "pixelsize": [2.6, 2.6, 2.0],
     "images": [
-        {"url": "#/datafile002.raw",
+        {"url": "#/data.raw",
          "timestamp" : "image id 031201",
          "wavelength" : "488",
          "offset" : [0, 0, 0],
@@ -50,8 +52,6 @@ This tool requires a configuration file, which provides basic information about 
 The first three values describe the dimensions of a single voxel. In this case, a single voxels represents a volume of 2.6 x 2.6 x 2 microns. These values must remain constant over time and they must be equal for all images. Next, the JSON file provides individual information about each image that should be loaded. Each image comes with its own URL and a timestamp. Once the timestamp changes, the image will be reloaded. The timestamp can be any string - we only check for changes in that string. Each image can have an individual data size and offset. Furthermore it is possible to flip the data along an individual axis. With these parameters it is, for example, possible to stitch two or more images. Note, flipping the data is performed first, moving the image to a certain offset position is performed afterwards. The wavelength entry is used to group images by channel. All images with the same wavelength will be drawn into the same channel. There can be up to four different channels (hence, four different wavelengths). 
 
 The data itself must be provided as a byte array of uint16 values.
-
-As stated above, the data, the JSON file, and the tool itself must be served by a web server. A quick way to do so is using python3: First, open a terminal in the folder containing these files. Then, type 'python3 -m http.server 1234' to open a webserver at port 1234 pointing to the current directory. The address of the folder would then be 'http:/localhost:1234/'
 
 ## FAQ
 ### The image freezes, I cannot move the camera

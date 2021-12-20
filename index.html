@@ -81,7 +81,7 @@
                     Config file URL
                 </div>
                 <div class="col-6">
-                    <input type="text" value="http://localhost:80/config.json" id="configUrlField" />
+                    <input type="text" value="http://localhost:1234/sample-data/config.json" id="configUrlField" />
                 </div>
             </div>
             <div class="row topSpace">
@@ -89,7 +89,7 @@
                     Data server root URL 
                 </div>
                 <div class="col-6">
-                    <input type="text" value="http://localhost:80/data" id="dataUrlField" />
+                    <input type="text" value="http://localhost:1234/sample-data" id="dataUrlField" />
                 </div>
             </div>
             <div class="row topSpace">
@@ -137,8 +137,8 @@
         <script>
             // Set defaults that hopefully match many cases
             var myUrl = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '');
-            document.getElementById('configUrlField').value = myUrl + "/data/config.json";
-            document.getElementById('dataUrlField').value = myUrl + "/data/";
+            document.getElementById('configUrlField').value = myUrl + "/sample-data/config.json";
+            document.getElementById('dataUrlField').value = myUrl + "/sample-data/";
 
             /**
              * Takes all user inputs and appends them to the URL
