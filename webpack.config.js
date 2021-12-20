@@ -3,7 +3,7 @@ const path = require('path');
 module.exports = {
   entry: './src/RemoteDVR.js',
   output: {
-    library: 'remoteDvr',
+    library: 'remotedvrlib',
     libraryTarget: 'umd',
     globalObject: 'this',
   },

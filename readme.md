@@ -53,6 +53,10 @@ The first three values describe the dimensions of a single voxel. In this case, 
 
 The data itself must be provided as a byte array of uint16 values.
 
+## Development
+
+Download the repository and install npm. Open a terminal in the folder of this project and run "npm install". Now you can compile the source code by running the command "webpack-cli".
+
 ## FAQ
 ### The image freezes, I cannot move the camera
 The tool is probably updating the image data (then, just wait a bit) or your graphics card is too weak (then, see below).

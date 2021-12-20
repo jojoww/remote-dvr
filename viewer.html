@@ -15,7 +15,7 @@
 
     <body>
         <div class="canvasArea">
-            <div id="mainCanvas"></div>
+            <div id="mainCanvasHolder"></div>
         </div>
 
         <div id="navigationArea">
@@ -187,6 +187,30 @@
         <div id="statusBars"></div>
         <script src="./dist/main.js"></script>
         <script>
+                        let canvasHolderDomObject = document.getElementById('mainCanvasHolder')
+            
+            let vis = new remotedvrlib.RemoteDVR(canvasHolderDomObject);
+
+            window.enableSlice = vis.enableSlice.bind(vis);
+            window.reloadTexture = vis.reloadTexture.bind(vis);
+            window.takeScreenshot = vis.takeScreenshot.bind(vis);
+            window.setAutoScreenshot = vis.setAutoScreenshot.bind(vis);
+            window.setCustomColor = vis.setCustomColor.bind(vis);
+            window.setBackgroundColor = vis.setBackgroundColor.bind(vis);
+            window.enableCustomColor = vis.enableCustomColor.bind(vis);
+            window.setAutoLoad = vis.setAutoLoad.bind(vis);
+            window.setChannelVisible = vis.setChannelVisible.bind(vis);
+            window.setColorMap = vis.setColorMap.bind(vis);
+            window.enableMIP = vis.enableMIP.bind(vis);
+            window.enableAverage = vis.enableAverage.bind(vis);
+            window.enableIso = vis.enableIso.bind(vis);
+            window.setIsoValue = vis.setIsoValue.bind(vis);
+            window.setSlice = vis.setSlice.bind(vis);
+            window.setCamera = vis.setCamera.bind(vis).bind(this);
+            window.setColorMaximum = vis.setColorMaximum.bind(vis);
+            window.setGamma = vis.setGamma.bind(vis);
+            window.setColorMinimum = vis.setColorMinimum.bind(vis);
+
         // This part contains pure GUI-related functions. They don't interact
         // with THREE.js directly but rather call the "public" function that
         // are defined in the module above.
@@ -607,6 +631,8 @@
         function hideRotationCamSlider() {
             document.getElementById('cameraRotationSliderRow').classList.add('none');
         }
+
+
         </script>
     </body>
 </html>
