@@ -479,9 +479,9 @@ export class RemoteDVR {
                     // Reading the texture is easy
                     val = parseFloat(array[x + y * numXOrig + z * numXYOrig]) / maxVal;
                     if (parameters.useByte) {
-                        val = parseInt(val * 255);
+                        // TODO normalization?
                     }
-                    console.log(x, y, z, val)
+                    val = parseInt(val * 255);
                     toX = x;
                     toY = y;
                     toZ = z;
@@ -518,7 +518,6 @@ export class RemoteDVR {
                         toY = xy2D[1];
                         toZ = 0;
                     }
-                    console.log("copy to", (toX + toY * numX + toZ * numXY) * parameters.numChannelsGPU + channel, val)
                     parameters.texture.image.data[(toX + toY * numX + toZ * numXY) * parameters.numChannelsGPU + channel] = val;
                 }
             }
