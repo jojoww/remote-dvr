@@ -1,11 +1,64 @@
 import * as THREE from './includes/build/three.module.js';
 import { OrbitControls } from './includes/examples/jsm/controls/OrbitControls.js';
 import { TrackballControls } from './includes/examples/jsm/controls/TrackballControls.js';
-import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js?v=22';
+import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js';
 import { WEBGL } from './includes/examples/jsm/WebGL.js';
 
 export class RemoteDVR {
-    constructor(canvasHolder) {
+    configUrl: string;
+    webglMode: number;
+    canvasHolder: any;
+    dataUrl: string;
+    samplingRate: number;
+    useByte: boolean;
+    downscale: number;
+    showFps: boolean;
+    refreshRate: number;
+    showReloadButtonCallback: () => void;
+    hideReloadButtonCallback: () => void;
+    addChannelsToGuiCallback: (channels: any) => void;
+    addLoadingBarsToGuiCallback: (val: any) => void;
+    setLoadingStatusCallback: () => void;
+    addScreenshotCallback: (imageData: any) => void;
+    loadingFinishedCallback: () => void;
+    showRotationCamSliderCallback: () => void;
+    showIsoSliderCallback: () => void;
+    hideSliceAndIsoSliderCallback: () => void;
+    setSliceSliderRange: (range: number) => void;
+    cameraDist: number;
+    allowPan: boolean;
+    context: any;
+    renderer: any;
+    scene: any;
+    camera: any;
+    controls: any;
+    material: any;
+    cmtextures: any;
+    texture: any;
+    canvas: any;
+    renderer2: any;
+    scene2: any;
+    camera2: any;
+    stats: any;
+    images: any;
+    smallestOffset: number[];
+    numImages: number;
+    numImagesPerChannel: {[key: string]: number};
+    channelToIndex: {[key: string]: number};
+    numChannels: number;
+    numChannelsGPU: number;
+    loadedImageVersions: any[];
+    worldDimensions: number[];
+    imageChannels: any[];
+    worldScale: number[];
+    noTextureLoaded: boolean;
+    autoScreenshot: boolean;
+    autoLoad: boolean;
+    useSampler3D: boolean;
+    sampler2DGridX: number;
+    sampler2DGridY: number;
+
+    constructor(canvasHolder: any) {
         // Check availability of WebGL 2.0. We prefer 2.0 since WebGL 1.0 does
         // not know 3D textures.
         this.webglMode = WEBGL.isWebGL2Available() ? 2 : WEBGL.isWebGLAvailable() ? 1 : 0;
@@ -17,9 +70,9 @@ export class RemoteDVR {
         let url = new URL(window.location.href);
         this.configUrl = url.searchParams.get('configUrl');
         this.dataUrl = url.searchParams.get('dataUrl');
-        this.samplingRate = url.searchParams.get('samplingRate');
-        this.useByte = url.searchParams.get('useByte') == 1 ? true : false;
-        this.downscale = url.searchParams.get('downscale');
+        this.samplingRate = parseFloat(url.searchParams.get('samplingRate'));
+        this.useByte = url.searchParams.get('useByte') == "1" ? true : false;
+        this.downscale = parseInt(url.searchParams.get('downscale'));
         this.showFps = url.searchParams.get('fps') !== null;
         this.refreshRate= 3000;
         this.showReloadButtonCallback = () => {};
@@ -34,7 +87,7 @@ export class RemoteDVR {
 
         if (this.configUrl === null) alert('Please provide the URL of a configuration file!');
         if (this.dataUrl === null) alert("Please provide the URL of the data server's root location!");
-        if (isNaN(this.useByte) || this.useByte === null) this.useByte = 1;
+        if (this.useByte === null) this.useByte = true;
         if (isNaN(this.downscale) || this.downscale === null) this.downscale = 1;
         if (isNaN(this.samplingRate) || this.samplingRate === null) this.samplingRate = 1;
 
@@ -105,7 +158,8 @@ export class RemoteDVR {
         this.renderer.setSize(this.canvasHolder.clientWidth, this.canvasHolder.clientHeight);
         this.canvasHolder.appendChild(this.renderer.domElement);
         if (this.showFps) {
-            this.stats = new Stats();
+            // TODO find/import a version of stats and call constructor here
+            this.stats = null;
             this.stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
             document.body.appendChild(this.stats.dom);
         }
@@ -164,14 +218,14 @@ export class RemoteDVR {
 
         // Add axes and manually change their color
         let axes = new THREE.AxesHelper(1);
-        let colors = axes.geometry.attributes.color;
+        let colors = (axes as any).geometry.attributes.color;
         colors.setXYZ(0, 1.0, 0.1, 0.1); // index, R, G, B
         colors.setXYZ(1, 1.0, 0.1, 0.1); // red
         colors.setXYZ(2, 0.2, 0.8, 0.1);
         colors.setXYZ(3, 0.2, 0.8, 0.1); // green
         colors.setXYZ(4, 0.1, 0.4, 1);
         colors.setXYZ(5, 0.1, 0.4, 1); // blue
-        axes.material.linewidth = 2;
+        (axes as any).material.linewidth = 2;
         this.scene2.add(axes);
     }
 
@@ -182,7 +236,7 @@ export class RemoteDVR {
     observeExternalDataSource() {
         this.fetchJSONFile(
             this.configUrl + '?' + Math.random(), // Force to load new; avoid caching
-            (data) => {
+            (data: { images: string | any[]; pixelsize: number[]; }) => {
                 if (this.loadedImageVersions.length === 0) {
                     this.numImages = data.images.length;
                     this.numChannels = 0;
@@ -192,7 +246,7 @@ export class RemoteDVR {
 
                     for (let i = 0; i < data.images.length; i++) {
                         let img = data.images[i]; // less typing...
-                        let wavelength = img.wavelength;
+                        let wavelength: string = img.wavelength;
                         // First, remember number of images per channel
                         if (this.numImagesPerChannel[wavelength] === undefined) {
                             this.imageChannels.push(wavelength);
@@ -256,9 +310,9 @@ export class RemoteDVR {
      * We create the initial texture. We can do this once we know the size of the data.
      */
     initTexture() {
-        let x = parseInt(this.worldDimensions[0] / this.downscale);
-        let y = parseInt(this.worldDimensions[1] / this.downscale);
-        let z = parseInt(this.worldDimensions[2] / this.downscale); // usually z is smaller, thus we only scale x/y
+        let x = Math.floor(this.worldDimensions[0] / this.downscale);
+        let y = Math.floor(this.worldDimensions[1] / this.downscale);
+        let z = Math.floor(this.worldDimensions[2] / this.downscale); // usually z is smaller, thus we only scale x/y
         let xScale = this.worldScale[0] * this.downscale;
         let yScale = this.worldScale[1] * this.downscale;
         let zScale = this.worldScale[2] * this.downscale;
@@ -334,15 +388,15 @@ export class RemoteDVR {
         // Colormap textures. Any number could be added (however, also the GUI must be updated then).
         // TODO: Remove callback
         this.cmtextures = {
-            viridis: new THREE.TextureLoader().load('src/includes/examples/textures/cm_viridis.png', this.render.bind(this)),
-            gray: new THREE.TextureLoader().load('src/includes/examples/textures/cm_gray.png', this.render.bind(this)),
-            gray_rev: new THREE.TextureLoader().load('src/includes/examples/textures/cm_gray_rev.png', this.render.bind(this)),
-            hot_iron: new THREE.TextureLoader().load('src/includes/examples/textures/cm_hot_iron.png', this.render.bind(this)),
+            viridis: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_viridis.png', this.render.bind(this)),
+            gray: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_gray.png', this.render.bind(this)),
+            gray_rev: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_gray_rev.png', this.render.bind(this)),
+            hot_iron: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_hot_iron.png', this.render.bind(this)),
         };
 
         // Material and uniforms
         let shader = VolumeRenderShader1;
-        let uniforms = THREE.UniformsUtils.clone(shader.uniforms);
+        let uniforms : any= THREE.UniformsUtils.clone(shader.uniforms);
 
         // Normalizing by the smalles dimension avoids unnecessary sampling steps
         let minDim = Math.min(xScale, yScale, zScale);
@@ -374,7 +428,7 @@ export class RemoteDVR {
         // A box with the size of the data. We will use its walls as canvas for rendering.
         let geometry = new THREE.BoxBufferGeometry(volX, volY, volZ);
         console.log(geometry);
-        geometry.translate(volX / 2, volY / 2, volZ / 2); // Or plus -0.5 per component, as in example?
+        (geometry as any).translate(volX / 2, volY / 2, volZ / 2); // Or plus -0.5 per component, as in example?
         let mesh = new THREE.Mesh(geometry, this.material);
 
         // Make the controls (camera) look at the right spot.
@@ -393,9 +447,9 @@ export class RemoteDVR {
      * @param {int} y Y coordinate in 3D texture
      * @param {int} z Z coordinate in 3D texture
      */
-    moveTo2DSamplerPosition(x, y, z) {
-        let offsetX = (z % this.sampler2DGridX) * parseInt(this.worldDimensions[0] / this.downscale);
-        let offsetY = Math.floor(z / this.sampler2DGridX) * parseInt(this.worldDimensions[1] / this.downscale);
+    moveTo2DSamplerPosition(x: number, y: number, z: number) {
+        let offsetX = (z % this.sampler2DGridX) * Math.floor(this.worldDimensions[0] / this.downscale);
+        let offsetY = Math.floor(z / this.sampler2DGridX) * Math.floor(this.worldDimensions[1] / this.downscale);
         return [x + offsetX, y + offsetY];
     }
 
@@ -414,7 +468,7 @@ export class RemoteDVR {
      * other functions. I am not sure if JavaScript offers a better alternative for
      * this approach.
      */
-    handleTextureData(data, parameters) {
+    handleTextureData(data: Iterable<number>, parameters: { index?: any; channel?: any; images?: any; setLoadingStatus?: any; smallestOffset?: any; worldScale?: any; worldDimensions?: any; downscale?: any; useSampler3D?: any; sampler2DGridX?: any; sampler2DGridY?: any; useByte?: any; moveTo2DSamplerPosition?: any; texture?: any; numChannelsGPU?: any; loadingFinished?: any; renderCall?: any; }) {
         console.log("Parameters", parameters)
         console.log("data", data)
         // Get information/links from "this" (the context)
@@ -435,7 +489,6 @@ export class RemoteDVR {
         // But limit the normalization to a factor of a maximum of 256. Otherwise "near black"
         // (empty) images would become super bright.
         maxVal = Math.max(maxVal, 255);
-        maxVal = parseFloat(maxVal);
         console.log('Normalizing to ', maxVal);
 
         console.time('Timer for updating texture:');
@@ -452,13 +505,13 @@ export class RemoteDVR {
         // to copy data at highest speed.
         //if(offsetX !== 0 || offsetY !== 0 || offsetZ !== 0 || flipX || flipY || flipZ || !parameters.useSampler3D) {
         console.log('Handle images. Offset: ', offsetX, offsetY, offsetZ, ', flips:', flipX, flipY, flipZ);
-        let numX = parseInt(parameters.worldDimensions[0] / parameters.downscale);
+        let numX = Math.floor(parameters.worldDimensions[0] / parameters.downscale);
         let numXOrig = img.datasize[0];
-        let numXY = parseInt(parameters.worldDimensions[1] / parameters.downscale) * numX;
+        let numXY = Math.floor(parameters.worldDimensions[1] / parameters.downscale) * numX;
         let numXYOrig = img.datasize[1] * numXOrig;
         if (!parameters.useSampler3D) {
-            numX = parameters.sampler2DGridX * parseInt(parameters.worldDimensions[0] / parameters.downscale);
-            numXY = parameters.sampler2DGridY * numX * parseInt(parameters.worldDimensions[1] / parameters.downscale); // not needed in that case
+            numX = parameters.sampler2DGridX * Math.floor(parameters.worldDimensions[0] / parameters.downscale);
+            numXY = parameters.sampler2DGridY * numX * Math.floor(parameters.worldDimensions[1] / parameters.downscale); // not needed in that case
         }
 
         let toX, toY, toZ, val;
@@ -477,11 +530,11 @@ export class RemoteDVR {
                     }
                     
                     // Reading the texture is easy
-                    val = parseFloat(array[x + y * numXOrig + z * numXYOrig]) / maxVal;
+                    val = (array[x + y * numXOrig + z * numXYOrig]) / maxVal;
                     if (parameters.useByte) {
                         // TODO normalization?
                     }
-                    val = parseInt(val * 255);
+                    val = Math.floor(val * 255);
                     toX = x;
                     toY = y;
                     toZ = z;
@@ -504,9 +557,9 @@ export class RemoteDVR {
                     
                     // Eventually - and not before - we move to scaled space
                     if (parameters.downscale > 1) {
-                        toX = parseInt(toX / parameters.downscale);
-                        toY = parseInt(toY / parameters.downscale);
-                        toZ = parseInt(toZ / parameters.downscale);
+                        toX = Math.floor(toX / parameters.downscale);
+                        toY = Math.floor(toY / parameters.downscale);
+                        toZ = Math.floor(toZ / parameters.downscale);
                     }
 
                     // In case we use 2D sampler, the position must be changed. In parameters mode, we
@@ -558,7 +611,7 @@ export class RemoteDVR {
                 console.log('Reloading image', i, ', which belongs to channel', this.images[i].wavelength);
                 if (this.autoScreenshot) this.takeScreenshot();
                 this.loadedImageVersions[i] = this.images[i].timestamp;
-                let loader = new THREE.FileLoader();
+                let loader = new (THREE.FileLoader() as any);
                 loader.setResponseType('arraybuffer');
                 // Note, we replace (the first occurence of) "#" by the user-defined data URL
                 let url = this.images[i].url.replace('#', this.dataUrl) + '?' + Math.random(); // Random string to prevent caching
@@ -566,7 +619,7 @@ export class RemoteDVR {
                 // Since the callback allows only one parameter, we define a new
                 // context for the callback that contains further information
                 // TODO: Parameter as class
-                let parameters = {};
+                let parameters : {[key: string]: any} = {};
                 parameters.images = this.images;
                 parameters.index = i;
                 parameters.texture = this.texture;
@@ -583,7 +636,7 @@ export class RemoteDVR {
                 parameters.smallestOffset = this.smallestOffset;
                 parameters.numChannelsGPU = this.numChannelsGPU;
                 
-                loader.load(url, (data) => this.handleTextureData(data, parameters), (value) => this.loadingStatus(value, parameters));
+                loader.load(url, (data: any) => this.handleTextureData(data, parameters), (value: any) => this.loadingStatus(value, parameters));
             }
         }
 
@@ -603,7 +656,7 @@ export class RemoteDVR {
      * @param {Object} value The THREE.js progress object
      * @param {int} channel The channel for which we should update the status bar
      */
-    loadingStatus(value, parameters) {
+    loadingStatus(value: { lengthComputable: any; loaded: number; total: number; }, parameters: { setLoadingStatus?: any; index?: any; }) {
         if (value.lengthComputable) {
             let percentage = Math.round((95 * value.loaded) / value.total);
             parameters.setLoadingStatus(parameters.index, percentage, 'Loading');
@@ -634,7 +687,7 @@ export class RemoteDVR {
     render() {
         this.showFps = false;
         if (this.showFps) {
-            stats.begin();
+            this.stats.begin();
         }
 
         this.renderer.render(this.scene, this.camera);
@@ -647,7 +700,7 @@ export class RemoteDVR {
         this.renderer2.render(this.scene2, this.camera2);
 
         if (this.showFps) {
-            stats.end();
+            this.stats.end();
         }
         //requestAnimationFrame( render ); // Alternative: loop, rendering all the time
     }
@@ -667,7 +720,7 @@ export class RemoteDVR {
      * @param {function} callbackSuccess Function to receive the JSON data.
      * @param {function} callbackFail Function to say sorry in case this failed.
      */
-    fetchJSONFile(url, callbackSuccess, callbackFail) {
+    fetchJSONFile(url: string | URL, callbackSuccess: { (data: any): void; (arg0: any): void; }, callbackFail: { (): void; (this: XMLHttpRequest, ev: ProgressEvent<EventTarget>): any; }) {
         let httpRequest = new XMLHttpRequest();
         httpRequest.onreadystatechange = () => {
             if (httpRequest.readyState === 4) {
@@ -699,7 +752,7 @@ export class RemoteDVR {
     takeScreenshot() {
         if (this.noTextureLoaded) return;
         this.renderer.render(this.scene, this.camera);
-        addScreenshotCallback(this.renderer.domElement.toDataURL());
+        this.addScreenshotCallback(this.renderer.domElement.toDataURL());
     }
 
     /**
@@ -707,7 +760,7 @@ export class RemoteDVR {
      * new texture is loaded.
      * @param {boolean} value
      */
-    setAutoScreenshot(value) {
+    setAutoScreenshot(value: boolean) {
         this.autoScreenshot = value;
     }
 
@@ -716,7 +769,7 @@ export class RemoteDVR {
      * a new texture available.
      * @param {boolean} value
      */
-    setAutoLoad(value) {
+    setAutoLoad(value: boolean) {
         this.autoLoad = value;
     }
 
@@ -725,7 +778,7 @@ export class RemoteDVR {
      * @param {boolean} val On (true) or off (false)?
      * @param {int} channel The channel to be toggled
      */
-    setChannelVisible(val, channel) {
+    setChannelVisible(val: any, channel: string) {
         this.material.uniforms['u_used_' + channel].value = val ? 1 : 0;
         this.renderCall();
     }
@@ -736,7 +789,7 @@ export class RemoteDVR {
      * @param {string} mapName Name of the colormap (as it was loaded before)
      * @param {int} channel Which channel this should be used for (in [0,3])
      */
-    setColorMap(mapName, channel) {
+    setColorMap(mapName: string | number, channel: string) {
         this.material.uniforms['u_colormode_' + channel].value = 0;
         this.material.uniforms['u_cmdata_' + channel].value = this.cmtextures[mapName];
         this.renderCall();
@@ -746,11 +799,11 @@ export class RemoteDVR {
      * Enable maximum intensity projection.
      */
     enableMIP() {
-        showRotationCamSlider();
+        this.showRotationCamSliderCallback();
         // Enable rotation and pan (could have been disabled by slice view)
         this.controls.enableRotate = true;
         this.controls.enablePan = this.allowPan;
-        hideSliceAndIsoSlider();
+        this.hideSliceAndIsoSliderCallback();
         this.material.uniforms['u_renderstyle'].value = 0;
         this.renderCall();
     }
@@ -759,11 +812,11 @@ export class RemoteDVR {
      * Enable average projection.
      */
     enableAverage() {
-        showRotationCamSlider();
+        this.showRotationCamSliderCallback();
         // Enable rotation and pan (could have been disabled by slice view)
         this.controls.enableRotate = true;
         this.controls.enablePan = this.allowPan;
-        hideSliceAndIsoSlider();
+        this.hideSliceAndIsoSliderCallback();
         this.material.uniforms['u_renderstyle'].value = 3;
         this.renderCall();
     }
@@ -772,13 +825,13 @@ export class RemoteDVR {
      * Enables the iso surface view in the shader.
      */
     enableIso() {
-        showRotationCamSlider();
-        hideSliceAndIsoSlider();
+        this.showRotationCamSliderCallback();
+        this.hideSliceAndIsoSliderCallback();
         // Enable rotation and pan (could have been disabled by slice view)
         this.controls.enableRotate = true;
         this.controls.enablePan = this.allowPan;
 
-        showIsoSlider();
+        this.showIsoSliderCallback();
         this.material.uniforms['u_renderstyle'].value = 1;
         this.renderCall();
     }
@@ -788,7 +841,7 @@ export class RemoteDVR {
      * @param {float} val The iso value
      * @param {int} channel Which channel this should be used for (in [0,3])
      */
-    setIsoValue(val, channel) {
+    setIsoValue(val: any, channel: string) {
         this.material.uniforms['u_renderthreshold_' + channel].value = val;
         this.renderCall();
     }
@@ -800,7 +853,7 @@ export class RemoteDVR {
      * perspective.
      * @param {float} val The position of the plane, in [0, n] with n = width/...
      */
-    setSlice(val) {
+    setSlice(val: number) {
         this.material.uniforms['u_slice'].value = val;
         this.renderCall();
     }
@@ -809,13 +862,13 @@ export class RemoteDVR {
      * Sets the camera to a certain position around the y axis.
      * @param {float} val The angle (in degree) to rotate
      */
-    setCamera(val) {
+    setCamera(val: number) {
         let angle = (val / 180) * Math.PI;
         let x = Math.cos(angle);
         let z = Math.sin(angle);
         let newPos = new THREE.Vector3(x * this.cameraDist, 0, z * this.cameraDist);
         let center = new THREE.Vector3(this.controls.target.x, this.controls.target.y, this.controls.target.z);
-        newPos.add(center);
+        (newPos as any).add(center);
         this.camera.position.set(newPos.x, newPos.y, newPos.z);
         this.camera.lookAt(new THREE.Vector3(this.controls.target.x, this.controls.target.y, this.controls.target.z));
         this.renderCall();
@@ -826,7 +879,7 @@ export class RemoteDVR {
      * @param {float} val The darkest visible intensity (in [0, 1])
      * @param {int} channel Which channel this should be used for (in [0,3])
      */
-    setColorMinimum(val, channel) {
+    setColorMinimum(val: any, channel: string) {
         this.material.uniforms['u_clim_' + channel].value.set(val, this.material.uniforms['u_clim_' + channel].value.y);
         this.renderCall();
     }
@@ -836,7 +889,7 @@ export class RemoteDVR {
      * @param {float} val The brightest visible intensity (in [0, 1])
      * @param {int} channel Which channel this should be used for (in [0,3])
      */
-    setColorMaximum(val, channel) {
+    setColorMaximum(val: any, channel: string) {
         this.material.uniforms['u_clim_' + channel].value.set(this.material.uniforms['u_clim_' + channel].value.x, val);
         this.renderCall();
     }
@@ -846,7 +899,7 @@ export class RemoteDVR {
      * @param {float} val The gamma value (something around 1, like [0.5, 3]; it's not validated or clipped)
      * @param {int} channel Which channel this should be used for (in [0,3])
      */
-    setGamma(val, channel) {
+    setGamma(val: any, channel: string) {
         this.material.uniforms['u_gamma_' + channel].value = val;
         this.renderCall();
     }
@@ -856,7 +909,7 @@ export class RemoteDVR {
      * interpolated between black and a custom color.
      * @param {int} channel Which channel this should be used for (in [0,3])
      */
-    enableCustomColor(channel) {
+    enableCustomColor(channel: string) {
         this.material.uniforms['u_colormode_' + channel].value = 1;
         this.renderCall();
     }
@@ -868,8 +921,8 @@ export class RemoteDVR {
      * @param {color} color The color value - anything understandable by THREE, e.g. #000000
      * @param {int} channel Which channel this should be used for (in [0,3])
      */
-    setCustomColor(color, channel) {
-        let c = new THREE.Color(color);
+    setCustomColor(color: any, channel: string) {
+        let c = new (THREE.Color as any)(color);
         this.material.uniforms['u_customcolor_' + channel].value.set(c.r, c.g, c.b);
         this.renderCall();
     }
@@ -878,7 +931,7 @@ export class RemoteDVR {
      * Background color of the rendered image
      * @param {color} color Anything that can be pares to a color by THREE.color()
      */
-    setBackgroundColor(color) {
+    setBackgroundColor(color: any) {
         this.renderer.setClearColor(color);
         this.renderCall();
     }
@@ -887,10 +940,10 @@ export class RemoteDVR {
      * Enable the slice view (cutting planes).
      * @param {string} type Which slice/orientation, can be "x", "y", "z"
      */
-    enableSlice(type) {
-        hideSliceAndIsoSlider();
-        showSliceSlider();
-        hideRotationCamSlider();
+    enableSlice(type: string) {
+        this.hideSliceAndIsoSliderCallback();
+        this.showIsoSliderCallback();
+        this.showRotationCamSliderCallback();
 
         // Disable rotation and pan
         this.controls.enableRotate = false;
@@ -899,18 +952,18 @@ export class RemoteDVR {
 
         // TODO: the quaternions are not really justified so far. Better solution?
         if (type == 'x') {
-            setSliceSliderRange(this.worldDimensions[0]);
-            setCamera(90);
+            this.setSliceSliderRange(this.worldDimensions[0]);
+            this.setCamera(90);
             /*
                     camera.position.set(this.cameraDist, this.controls.target.y, this.controls.target.z);
                     camera.quaternion.set(0.5, 0.5, 0.5, 0.5);*/
         } else if (type == 'y') {
-            setSliceSliderRange(this.worldDimensions[1]);
+            this.setSliceSliderRange(this.worldDimensions[1]);
             this.camera.position.set(this.controls.target.x, this.cameraDist, this.controls.target.z);
             this.camera.quaternion.set(0, 1 / Math.sqrt(2), 1 / Math.sqrt(2), 0);
         } else {
-            setSliceSliderRange(this.worldDimensions[2]);
-            setCamera(0);
+            this.setSliceSliderRange(this.worldDimensions[2]);
+            this.setCamera(0);
             /*
                     camera.position.set(this.controls.target.x, this.controls.target.y, this.cameraDist);
                     camera.quaternion.set(0, 0, 0, 1);*/
@@ -928,3 +981,5 @@ export class RemoteDVR {
         this.loadTexture();
     }
 }
+
+
