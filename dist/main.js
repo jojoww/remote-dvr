@@ -51533,11 +51533,12 @@ var RemoteDVR = /** @class */ (function () {
         // Not too sure about the following one or if alternatives would be better.
         this.texture.unpackAlignment = 1;
         // Colormap textures. Any number could be added (however, also the GUI must be updated then).
+        console.log("THIS", this);
         this.cmtextures = {
-            viridis: new (TextureLoader().load)('src/includes/examples/textures/cm_viridis.png', this.render.bind(this)),
-            gray: new (TextureLoader().load)('src/includes/examples/textures/cm_gray.png', this.render.bind(this)),
-            gray_rev: new (TextureLoader().load)('src/includes/examples/textures/cm_gray_rev.png', this.render.bind(this)),
-            hot_iron: new (TextureLoader().load)('src/includes/examples/textures/cm_hot_iron.png', this.render.bind(this)),
+            viridis: (new TextureLoader()).load('src/includes/examples/textures/cm_viridis.png'),
+            gray: (new TextureLoader()).load('src/includes/examples/textures/cm_gray.png'),
+            gray_rev: (new TextureLoader()).load('src/includes/examples/textures/cm_gray_rev.png'),
+            hot_iron: (new TextureLoader()).load('src/includes/examples/textures/cm_hot_iron.png'),
         };
         // Material and uniforms
         var shader = VolumeRenderShader1;
@@ -51739,7 +51740,7 @@ var RemoteDVR = /** @class */ (function () {
                 if (this_1.autoScreenshot)
                     this_1.takeScreenshot();
                 this_1.loadedImageVersions[i] = this_1.images[i].timestamp;
-                var loader = new (FileLoader())();
+                var loader = new FileLoader();
                 loader.setResponseType('arraybuffer');
                 // Note, we replace (the first occurence of) "#" by the user-defined data URL
                 var url = this_1.images[i].url.replace('#', this_1.dataUrl) + '?' + Math.random(); // Random string to prevent caching

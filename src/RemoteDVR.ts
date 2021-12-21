@@ -382,11 +382,12 @@ export class RemoteDVR {
         this.texture.unpackAlignment = 1;
 
         // Colormap textures. Any number could be added (however, also the GUI must be updated then).
+        console.log("THIS", this)
         this.cmtextures = {
-            viridis: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_viridis.png', this.render.bind(this)),
-            gray: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_gray.png', this.render.bind(this)),
-            gray_rev: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_gray_rev.png', this.render.bind(this)),
-            hot_iron: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_hot_iron.png', this.render.bind(this)),
+            viridis: (new (THREE.TextureLoader as any)()).load('src/includes/examples/textures/cm_viridis.png'),
+            gray: (new (THREE.TextureLoader as any)()).load('src/includes/examples/textures/cm_gray.png'),
+            gray_rev: (new (THREE.TextureLoader as any)()).load('src/includes/examples/textures/cm_gray_rev.png'),
+            hot_iron: (new (THREE.TextureLoader as any)()).load('src/includes/examples/textures/cm_hot_iron.png'),
         };
 
         // Material and uniforms
@@ -606,7 +607,7 @@ export class RemoteDVR {
                 console.log('Reloading image', i, ', which belongs to channel', this.images[i].wavelength);
                 if (this.autoScreenshot) this.takeScreenshot();
                 this.loadedImageVersions[i] = this.images[i].timestamp;
-                let loader = new (THREE.FileLoader() as any)();
+                let loader = new (THREE.FileLoader as any)();
                 loader.setResponseType('arraybuffer');
                 // Note, we replace (the first occurence of) "#" by the user-defined data URL
                 let url = this.images[i].url.replace('#', this.dataUrl) + '?' + Math.random(); // Random string to prevent caching
