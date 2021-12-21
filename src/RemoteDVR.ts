@@ -3,11 +3,12 @@ import { OrbitControls } from './includes/examples/jsm/controls/OrbitControls.js
 import { TrackballControls } from './includes/examples/jsm/controls/TrackballControls.js';
 import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js';
 import { WEBGL } from './includes/examples/jsm/WebGL.js';
+import { RemoteDVRConfig } from './RemoteDVRConfig.js';
 
 export class RemoteDVR {
     configUrl: string;
     webglMode: number;
-    canvasHolder: any;
+    canvasHolder: HTMLElement;
     dataUrl: string;
     samplingRate: number;
     useByte: boolean;
@@ -43,8 +44,8 @@ export class RemoteDVR {
     images: any;
     smallestOffset: number[];
     numImages: number;
-    numImagesPerChannel: {[key: string]: number};
-    channelToIndex: {[key: string]: number};
+    numImagesPerChannel: { [key: string]: number };
+    channelToIndex: { [key: string]: number };
     numChannels: number;
     numChannelsGPU: number;
     loadedImageVersions: any[];
@@ -57,39 +58,36 @@ export class RemoteDVR {
     useSampler3D: boolean;
     sampler2DGridX: number;
     sampler2DGridY: number;
+    insetHolder: HTMLElement;
 
-    constructor(canvasHolder: any) {
+    constructor(config: RemoteDVRConfig) {
         // Check availability of WebGL 2.0. We prefer 2.0 since WebGL 1.0 does
         // not know 3D textures.
         this.webglMode = WEBGL.isWebGL2Available() ? 2 : WEBGL.isWebGLAvailable() ? 1 : 0;
         console.log('WebGL available? ', this.webglMode);
-
-        this.canvasHolder = canvasHolder;
-
-        // Prepare: get parameters from URL
-        let url = new URL(window.location.href);
-        this.configUrl = url.searchParams.get('configUrl');
-        this.dataUrl = url.searchParams.get('dataUrl');
-        this.samplingRate = parseFloat(url.searchParams.get('samplingRate'));
-        this.useByte = url.searchParams.get('useByte') == "1" ? true : false;
-        this.downscale = parseInt(url.searchParams.get('downscale'));
-        this.showFps = url.searchParams.get('fps') !== null;
-        this.refreshRate= 3000;
-        this.showReloadButtonCallback = () => {};
-        this.hideReloadButtonCallback = () => {};
-        this.addChannelsToGuiCallback = () => {};
-        this.addLoadingBarsToGuiCallback = () => {};
-        this.setLoadingStatusCallback = () => {};
-        this.addScreenshotCallback = () => {};
-        this.loadingFinishedCallback = () => {};
-        this.cameraDist = 2500; // Camera must be far away from the data to avoid clipping (=voxel space)
-        this.allowPan = false; // We disable the option to move the geometry away
-
-        if (this.configUrl === null) alert('Please provide the URL of a configuration file!');
-        if (this.dataUrl === null) alert("Please provide the URL of the data server's root location!");
-        if (this.useByte === null) this.useByte = true;
-        if (isNaN(this.downscale) || this.downscale === null) this.downscale = 1;
-        if (isNaN(this.samplingRate) || this.samplingRate === null) this.samplingRate = 1;
+        console.log('Config:', config);
+        this.canvasHolder = config.canvasHolder;
+        this.insetHolder = config.insetHolder;
+        this.configUrl = config.configUrl;
+        this.dataUrl = config.dataUrl;
+        this.samplingRate = config.samplingRate;
+        this.useByte = config.useByte;
+        this.downscale = config.downscale;
+        this.showFps = config.showFps;
+        this.refreshRate = config.refreshRate;
+        this.showReloadButtonCallback = config.showReloadButtonCallback;
+        this.hideReloadButtonCallback = config.hideReloadButtonCallback;
+        this.addChannelsToGuiCallback = config.addChannelsToGuiCallback;
+        this.addLoadingBarsToGuiCallback = config.addLoadingBarsToGuiCallback;
+        this.setLoadingStatusCallback = config.setLoadingStatusCallback;
+        this.addScreenshotCallback = config.addScreenshotCallback;
+        this.loadingFinishedCallback = config.loadingFinishedCallback;
+        this.showRotationCamSliderCallback = config.showRotationCamSliderCallback;
+        this.showIsoSliderCallback = config.showIsoSliderCallback;
+        this.hideSliceAndIsoSliderCallback = config.hideSliceAndIsoSliderCallback;
+        this.setSliceSliderRange = config.setSliceSliderRange;
+        this.cameraDist = config.cameraDist;
+        this.allowPan = config.allowPan;
 
         // The webGL elements
         this.context = null;
@@ -105,7 +103,6 @@ export class RemoteDVR {
         this.scene2 = null;
         this.camera2 = null;
         this.stats = null;
-
 
         // Most image information are stored in variable "images". Besides that we created some
         // helpers that store advanced information and relations between images and channels.
@@ -203,17 +200,16 @@ export class RemoteDVR {
      * Creates a second view showing orientation/axes
      */
     initInset() {
-        let container = document.getElementById('inset');
         this.renderer2 = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer2.setClearColor(0xf0f0f0, 0); // Transparent background
-        this.renderer2.setSize(container.offsetWidth, container.offsetHeight);
-        container.appendChild(this.renderer2.domElement);
+        this.renderer2.setSize(this.insetHolder.offsetWidth, this.insetHolder.offsetHeight);
+        this.insetHolder.appendChild(this.renderer2.domElement);
 
         this.scene2 = new THREE.Scene();
         // Orthographic camera confused me/didn't work (wrong frustum?).
         // However, perspective is not a problem here.
         //camera2 = new THREE.OrthographicCamera( -1, 1, 1, -1, 0.1, 1000 );
-        this.camera2 = new THREE.PerspectiveCamera(50, container.offsetWidth / container.offsetHeight, 0.1, 1000);
+        this.camera2 = new THREE.PerspectiveCamera(50, this.insetHolder.offsetWidth / this.insetHolder.offsetHeight, 0.1, 1000);
         this.camera2.up = this.camera.up;
 
         // Add axes and manually change their color
@@ -236,7 +232,7 @@ export class RemoteDVR {
     observeExternalDataSource() {
         this.fetchJSONFile(
             this.configUrl + '?' + Math.random(), // Force to load new; avoid caching
-            (data: { images: string | any[]; pixelsize: number[]; }) => {
+            (data: { images: string | any[]; pixelsize: number[] }) => {
                 if (this.loadedImageVersions.length === 0) {
                     this.numImages = data.images.length;
                     this.numChannels = 0;
@@ -386,7 +382,6 @@ export class RemoteDVR {
         this.texture.unpackAlignment = 1;
 
         // Colormap textures. Any number could be added (however, also the GUI must be updated then).
-        // TODO: Remove callback
         this.cmtextures = {
             viridis: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_viridis.png', this.render.bind(this)),
             gray: new (THREE.TextureLoader() as any).load('src/includes/examples/textures/cm_gray.png', this.render.bind(this)),
@@ -396,7 +391,7 @@ export class RemoteDVR {
 
         // Material and uniforms
         let shader = VolumeRenderShader1;
-        let uniforms : any= THREE.UniformsUtils.clone(shader.uniforms);
+        let uniforms: any = THREE.UniformsUtils.clone(shader.uniforms);
 
         // Normalizing by the smalles dimension avoids unnecessary sampling steps
         let minDim = Math.min(xScale, yScale, zScale);
@@ -468,9 +463,9 @@ export class RemoteDVR {
      * other functions. I am not sure if JavaScript offers a better alternative for
      * this approach.
      */
-    handleTextureData(data: Iterable<number>, parameters: { index?: any; channel?: any; images?: any; setLoadingStatus?: any; smallestOffset?: any; worldScale?: any; worldDimensions?: any; downscale?: any; useSampler3D?: any; sampler2DGridX?: any; sampler2DGridY?: any; useByte?: any; moveTo2DSamplerPosition?: any; texture?: any; numChannelsGPU?: any; loadingFinished?: any; renderCall?: any; }) {
-        console.log("Parameters", parameters)
-        console.log("data", data)
+    handleTextureData(data: Iterable<number>, parameters: { index?: any; channel?: any; images?: any; setLoadingStatus?: any; smallestOffset?: any; worldScale?: any; worldDimensions?: any; downscale?: any; useSampler3D?: any; sampler2DGridX?: any; sampler2DGridY?: any; useByte?: any; moveTo2DSamplerPosition?: any; texture?: any; numChannelsGPU?: any; loadingFinished?: any; renderCall?: any }) {
+        console.log('Parameters', parameters);
+        console.log('data', data);
         // Get information/links from "this" (the context)
         let index = parameters.index;
         let channel = parameters.channel;
@@ -515,7 +510,7 @@ export class RemoteDVR {
         }
 
         let toX, toY, toZ, val;
-        console.log("Image datasize", img.datasize)
+        console.log('Image datasize', img.datasize);
         // Load the data and normalize to [0,1]. If texture uses bytes, convert to [0,255].
         // This loop runs in data (origin) space and puts the value to the respective position in the world
         // Note: it is way faster do let x be fastest changing index!
@@ -528,9 +523,9 @@ export class RemoteDVR {
                             continue;
                         }
                     }
-                    
+
                     // Reading the texture is easy
-                    val = (array[x + y * numXOrig + z * numXYOrig]) / maxVal;
+                    val = array[x + y * numXOrig + z * numXYOrig] / maxVal;
                     if (parameters.useByte) {
                         // TODO normalization?
                     }
@@ -554,7 +549,7 @@ export class RemoteDVR {
                     if (toX < 0 || toY < 0 || toZ < 0 || toX >= parameters.worldDimensions[0] || toY >= parameters.worldDimensions[1] || toZ >= parameters.worldDimensions[2]) {
                         continue; // Out of bounds
                     }
-                    
+
                     // Eventually - and not before - we move to scaled space
                     if (parameters.downscale > 1) {
                         toX = Math.floor(toX / parameters.downscale);
@@ -611,7 +606,7 @@ export class RemoteDVR {
                 console.log('Reloading image', i, ', which belongs to channel', this.images[i].wavelength);
                 if (this.autoScreenshot) this.takeScreenshot();
                 this.loadedImageVersions[i] = this.images[i].timestamp;
-                let loader = new (THREE.FileLoader() as any);
+                let loader = new (THREE.FileLoader() as any)();
                 loader.setResponseType('arraybuffer');
                 // Note, we replace (the first occurence of) "#" by the user-defined data URL
                 let url = this.images[i].url.replace('#', this.dataUrl) + '?' + Math.random(); // Random string to prevent caching
@@ -619,7 +614,7 @@ export class RemoteDVR {
                 // Since the callback allows only one parameter, we define a new
                 // context for the callback that contains further information
                 // TODO: Parameter as class
-                let parameters : {[key: string]: any} = {};
+                let parameters: { [key: string]: any } = {};
                 parameters.images = this.images;
                 parameters.index = i;
                 parameters.texture = this.texture;
@@ -635,8 +630,12 @@ export class RemoteDVR {
                 parameters.downscale = this.downscale;
                 parameters.smallestOffset = this.smallestOffset;
                 parameters.numChannelsGPU = this.numChannelsGPU;
-                
-                loader.load(url, (data: any) => this.handleTextureData(data, parameters), (value: any) => this.loadingStatus(value, parameters));
+
+                loader.load(
+                    url,
+                    (data: any) => this.handleTextureData(data, parameters),
+                    (value: any) => this.loadingStatus(value, parameters)
+                );
             }
         }
 
@@ -656,7 +655,7 @@ export class RemoteDVR {
      * @param {Object} value The THREE.js progress object
      * @param {int} channel The channel for which we should update the status bar
      */
-    loadingStatus(value: { lengthComputable: any; loaded: number; total: number; }, parameters: { setLoadingStatus?: any; index?: any; }) {
+    loadingStatus(value: { lengthComputable: any; loaded: number; total: number }, parameters: { setLoadingStatus?: any; index?: any }) {
         if (value.lengthComputable) {
             let percentage = Math.round((95 * value.loaded) / value.total);
             parameters.setLoadingStatus(parameters.index, percentage, 'Loading');
@@ -710,7 +709,7 @@ export class RemoteDVR {
      * we only re-render the scene on demand (instead of permanently).
      */
     renderCall() {
-        console.log("Render function", this.render)
+        console.log('Render function', this.render);
         requestAnimationFrame(this.render.bind(this));
     }
 
@@ -720,7 +719,7 @@ export class RemoteDVR {
      * @param {function} callbackSuccess Function to receive the JSON data.
      * @param {function} callbackFail Function to say sorry in case this failed.
      */
-    fetchJSONFile(url: string | URL, callbackSuccess: { (data: any): void; (arg0: any): void; }, callbackFail: { (): void; (this: XMLHttpRequest, ev: ProgressEvent<EventTarget>): any; }) {
+    fetchJSONFile(url: string | URL, callbackSuccess: { (data: any): void; (arg0: any): void }, callbackFail: { (): void; (this: XMLHttpRequest, ev: ProgressEvent<EventTarget>): any }) {
         let httpRequest = new XMLHttpRequest();
         httpRequest.onreadystatechange = () => {
             if (httpRequest.readyState === 4) {
@@ -981,5 +980,3 @@ export class RemoteDVR {
         this.loadTexture();
     }
 }
-
-

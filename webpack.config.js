@@ -8,7 +8,7 @@ module.exports = {
     globalObject: 'this',
   },
   optimization: {
-    minimize: true
+    minimize: false
   },
   devServer: {
     contentBase: path.join(__dirname, ''),

@@ -187,9 +187,35 @@
         <div id="statusBars"></div>
         <script src="./dist/main.js"></script>
         <script>
-                        let canvasHolderDomObject = document.getElementById('mainCanvasHolder')
+            // Prepare: get parameters from URL
+            let url = new URL(window.location.href);
+            let config = {};
+            config.canvasHolder = document.getElementById('mainCanvasHolder');
+            config.insetHolder = document.getElementById('inset');
+            config.configUrl = url.searchParams.get('configUrl');
+            config.dataUrl = url.searchParams.get('dataUrl');
+            config.samplingRate = parseFloat(url.searchParams.get('samplingRate'));
+            config.useByte = url.searchParams.get('useByte') == '1' ? true : false;
+            config.downscale = parseInt(url.searchParams.get('downscale'));
+            config.showFps = url.searchParams.get('fps') !== null;
+            config.refreshRate = 3000;
+            config.showReloadButtonCallback = () => {};
+            config.hideReloadButtonCallback = () => {};
+            config.addChannelsToGuiCallback = () => {};
+            config.addLoadingBarsToGuiCallback = () => {};
+            config.setLoadingStatusCallback = () => {};
+            config.addScreenshotCallback = () => {};
+            config.loadingFinishedCallback = () => {};
+            config.cameraDist = 2500; // Camera must be far away from the data to avoid clipping (=voxel space)
+            config.allowPan = false; // We disable the option to move the geometry away
+
+            if (config.configUrl === null) alert('Please provide the URL of a configuration file!');
+            if (config.dataUrl === null) alert("Please provide the URL of the data server's root location!");
+            if (config.useByte === null) config.useByte = true;
+            if (isNaN(config.downscale) || config.downscale === null) config.downscale = 1;
+            if (isNaN(config.samplingRate) || config.samplingRate === null) config.samplingRate = 1;
             
-            let vis = new remotedvrlib.RemoteDVR(canvasHolderDomObject);
+            let vis = new remotedvrlib.RemoteDVR(config);
 
             window.enableSlice = vis.enableSlice.bind(vis);
             window.reloadTexture = vis.reloadTexture.bind(vis);
