@@ -24,7 +24,7 @@ export class RemoteDVR {
     showReloadButtonCallback: () => void;
     hideReloadButtonCallback: () => void;
     addChannelsToGuiCallback: (channels: any) => void;
-    addLoadingBarsToGuiCallback: (val: any) => void;
+    addLoadingBarsToGuiCallback: (numImages: any) => void;
     setLoadingStatusCallback: (index : number, percentage : number, message : string) => void;
     addScreenshotCallback: (imageData: any) => void;
     loadingFinishedCallback: () => void;

@@ -199,13 +199,18 @@
             config.downscale = parseInt(url.searchParams.get('downscale'));
             config.showFps = url.searchParams.get('fps') !== null;
             config.refreshRate = 3000;
-            config.showReloadButtonCallback = () => {};
-            config.hideReloadButtonCallback = () => {};
-            config.addChannelsToGuiCallback = () => {};
-            config.addLoadingBarsToGuiCallback = () => {};
-            config.setLoadingStatusCallback = () => {};
-            config.addScreenshotCallback = () => {};
-            config.loadingFinishedCallback = () => {};
+            config.showReloadButtonCallback = showReloadButton;
+            config.hideReloadButtonCallback = hideReloadButton;
+            config.addChannelsToGuiCallback = addChannelsToGui;
+            config.addLoadingBarsToGuiCallback = addLoadingBarsToGui;
+            config.setLoadingStatusCallback = setLoadingStatus;
+            config.addScreenshotCallback = addScreenshot;
+            config.loadingFinishedCallback = loadingFinished;
+            config.showRotationCamSliderCallback = showRotationCamSlider;
+            config.showIsoSliderCallback = showIsoSlider;
+            config.hideSliceAndIsoSliderCallback = hideSliceAndIsoSlider;
+            config.setSliceSliderRange = setSliceSliderRange;
+
             config.cameraDist = 2500; // Camera must be far away from the data to avoid clipping (=voxel space)
             config.allowPan = false; // We disable the option to move the geometry away
 

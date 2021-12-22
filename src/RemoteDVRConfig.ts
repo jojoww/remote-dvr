@@ -8,13 +8,13 @@ export class RemoteDVRConfig {
     downscale = 1;
     showFps = false;
     refreshRate = 3000;
-    showReloadButtonCallback = () => {};
-    hideReloadButtonCallback = () => {};
-    addChannelsToGuiCallback = () => {};
-    addLoadingBarsToGuiCallback = () => {};
-    setLoadingStatusCallback = () => {};
-    addScreenshotCallback = () => {};
-    loadingFinishedCallback = () => {};
+    showReloadButtonCallback: () => void;
+    hideReloadButtonCallback: () => void;
+    addChannelsToGuiCallback: (channels: any) => void;
+    addLoadingBarsToGuiCallback: (numImages: any) => void;
+    setLoadingStatusCallback : (index : number, percentage : number, message : string) => void;
+    addScreenshotCallback: (imageData: any) => void
+    loadingFinishedCallback: () => void;
     showRotationCamSliderCallback: () => void;
     showIsoSliderCallback: () => void;
     hideSliceAndIsoSliderCallback: () => void;
