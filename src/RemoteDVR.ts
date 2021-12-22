@@ -3,31 +3,37 @@ import { OrbitControls } from './includes/examples/jsm/controls/OrbitControls.js
 import { TrackballControls } from './includes/examples/jsm/controls/TrackballControls.js';
 import { VolumeRenderShader1 } from './includes/examples/jsm/shaders/VolumeShader.js';
 import { WEBGL } from './includes/examples/jsm/WebGL.js';
-import { RemoteDVRConfig } from './RemoteDVRConfig.js';
+import { RemoteDVRConfig } from './RemoteDVRConfig';
+import { TextureCreationContext } from './TextureCreationContext';
 
 export class RemoteDVR {
-    configUrl: string;
-    webglMode: number;
     canvasHolder: HTMLElement;
+    insetHolder: HTMLElement;
+    configUrl: string;
+    webGlVersion: number;
     dataUrl: string;
     samplingRate: number;
-    useByte: boolean;
+    useByteInsteadFloat: boolean;
     downscale: number;
     showFps: boolean;
     refreshRate: number;
+    cameraDist: number;
+    allowPan: boolean;
+
+    // Callbacks for UI interaction
     showReloadButtonCallback: () => void;
     hideReloadButtonCallback: () => void;
     addChannelsToGuiCallback: (channels: any) => void;
     addLoadingBarsToGuiCallback: (val: any) => void;
-    setLoadingStatusCallback: () => void;
+    setLoadingStatusCallback: (index : number, percentage : number, message : string) => void;
     addScreenshotCallback: (imageData: any) => void;
     loadingFinishedCallback: () => void;
     showRotationCamSliderCallback: () => void;
     showIsoSliderCallback: () => void;
     hideSliceAndIsoSliderCallback: () => void;
     setSliceSliderRange: (range: number) => void;
-    cameraDist: number;
-    allowPan: boolean;
+
+    // The webGL elements
     context: any;
     renderer: any;
     scene: any;
@@ -41,37 +47,44 @@ export class RemoteDVR {
     scene2: any;
     camera2: any;
     stats: any;
-    images: any;
-    smallestOffset: number[];
-    numImages: number;
-    numImagesPerChannel: { [key: string]: number };
-    channelToIndex: { [key: string]: number };
-    numChannels: number;
-    numChannelsGPU: number;
-    loadedImageVersions: any[];
-    worldDimensions: number[];
-    imageChannels: any[];
-    worldScale: number[];
-    noTextureLoaded: boolean;
-    autoScreenshot: boolean;
-    autoLoad: boolean;
-    useSampler3D: boolean;
-    sampler2DGridX: number;
-    sampler2DGridY: number;
-    insetHolder: HTMLElement;
+
+    // Image and world information
+    // Most image information are stored in variable "images". Besides that we created some
+    // helpers that store advanced information and relations between images and channels.
+    // Note, a channel must be filled by at least one image, but also multiple images could be
+    // used to create a stitched view on the data. The world dimension is derived from the
+    // maximum image size and the maximum image offset.
+    images: any; // Holds metadata for all images. This is basically a copy of the config JSON.
+    smallestOffset: number[] = [0, 0, 0]; // We have to normalize by the smallest offset in order to start world space at 0/0/0
+    numImages: number = 1; // The total number of images
+    numImagesPerChannel: { [key: string]: number } = {}; // Not needed so far, but potentially to know when a channel is fully updated
+    channelToIndex: { [key: string]: number } = {}; // Provides the order (= a numeric index) for each channel name
+    numChannels: number = 1; // The number of channels provided by the data, in [1,4].
+    numChannelsGPU: number = 1; // Like above, but considers limits of WebGL. E.g. there can't be 2 - we would use 3 and fill up with zeros.
+    loadedImageVersions: any[] = []; // Array of timestamps of currently loaded (=visible) data
+    worldDimensions: number[] = [0, 0, 0]; // Number of elements per axis
+    imageChannels: any[] = []; // For each image: channel it belongs to (like a reverse index)
+    worldScale: number[] = [1, 1, 1]; // Voxel spacing for x, y, z dimensions
+    noTextureLoaded: boolean = true; // Just to know if we have successfully loaded anything
+    autoScreenshot: boolean = true; // If true, a screenshot is taken just before a new texture is loaded
+    autoLoad: boolean = false; // If true, new datasets are loaded automatically
+    useSampler3D: boolean = true; // If webgl2, use sampler3d; else we must use the workaround with a large 2D texture
+    sampler2DGridX: number = 1; // If we use 2D textures, we place the textures in a grid. That's the number of images along x
+    sampler2DGridY: number = 1; // If we use 2D textures, we place the textures in a grid. That's the number of images along y
 
     constructor(config: RemoteDVRConfig) {
         // Check availability of WebGL 2.0. We prefer 2.0 since WebGL 1.0 does
         // not know 3D textures.
-        this.webglMode = WEBGL.isWebGL2Available() ? 2 : WEBGL.isWebGLAvailable() ? 1 : 0;
-        console.log('WebGL available? ', this.webglMode);
+        this.webGlVersion = WEBGL.isWebGL2Available() ? 2 : WEBGL.isWebGLAvailable() ? 1 : 0;
+        this.useSampler3D = this.webGlVersion == 2;
+        console.log('WebGL available? ', this.webGlVersion);
         console.log('Config:', config);
         this.canvasHolder = config.canvasHolder;
         this.insetHolder = config.insetHolder;
         this.configUrl = config.configUrl;
         this.dataUrl = config.dataUrl;
         this.samplingRate = config.samplingRate;
-        this.useByte = config.useByte;
+        this.useByteInsteadFloat = config.useByteInsteadFloat;
         this.downscale = config.downscale;
         this.showFps = config.showFps;
         this.refreshRate = config.refreshRate;
@@ -89,47 +102,10 @@ export class RemoteDVR {
         this.cameraDist = config.cameraDist;
         this.allowPan = config.allowPan;
 
-        // The webGL elements
-        this.context = null;
-        this.renderer = null;
-        this.scene = null;
-        this.camera = null;
-        this.controls = null;
-        this.material = null;
-        this.cmtextures = null;
-        this.texture = null;
-        this.canvas = null;
-        this.renderer2 = null;
-        this.scene2 = null;
-        this.camera2 = null;
-        this.stats = null;
 
-        // Most image information are stored in variable "images". Besides that we created some
-        // helpers that store advanced information and relations between images and channels.
-        // Note, a channel must be filled by at least one image, but also multiple images could be
-        // used to create a stitched view on the data. The world dimension is derived from the
-        // maximum image size and the maximum image offset.
-        this.images; // Holds metadata for all images. This is basically a copy of the config JSON.
-        this.smallestOffset = [0, 0, 0]; // We have to normalize by the smallest offset in order to start world space at 0/0/0
-        this.numImages = 1; // The total number of images
-        this.numImagesPerChannel = {}; // Not needed so far, but potentially to know when a channel is fully updated
-        this.channelToIndex = {}; // Provides the order (= a numeric index) for each channel name
-        this.numChannels = 1; // The number of channels provided by the data, in [1,4].
-        this.numChannelsGPU = 1; // Like above, but considers limits of WebGL. E.g. there can't be 2 - we would use 3 and fill up with zeros.
-        this.loadedImageVersions = []; // Array of timestamps of currently loaded (=visible) data
-        this.worldDimensions = [0, 0, 0]; // Number of elements per axis
-        this.imageChannels = []; // For each image: channel it belongs to (like a reverse index)
-        this.worldScale = [1, 1, 1]; // Voxel spacing for x, y, z dimensions
-
-        this.noTextureLoaded = true; // Just to know if we have successfully loaded anything
-        this.autoScreenshot = true; // If true, a screenshot is taken just before a new texture is loaded
-        this.autoLoad = false; // If true, new datasets are loaded automatically
-        this.useSampler3D = this.webglMode == 2; // If webgl2, use sampler3d; else we must use the workaround with a large 2D texture
-        this.sampler2DGridX = 1; // If we use 2D textures, we place the textures in a grid. That's the number of images along x
-        this.sampler2DGridY = 1; // If we use 2D textures, we place the textures in a grid. That's the number of images along y
 
         // Start everything
-        if (this.webglMode === 0) {
+        if (this.webGlVersion === 0) {
             alert('Your browser does not support WebGL');
         } else {
             this.init();
@@ -142,7 +118,7 @@ export class RemoteDVR {
         // Create the THREE.js basics
         this.scene = new THREE.Scene();
         this.canvas = document.createElement('canvas');
-        this.context = this.canvas.getContext(this.webglMode == 2 ? 'webgl2' : 'webgl1', { alpha: false, antialias: false });
+        this.context = this.canvas.getContext(this.webGlVersion == 2 ? 'webgl2' : 'webgl1', { alpha: false, antialias: false });
 
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
@@ -323,7 +299,7 @@ export class RemoteDVR {
             this.numChannelsGPU = 3; // ... nope, there is no two-channel-GPU format, use 3!
         }
 
-        if (this.numChannelsGPU == 3 && !this.useByte) {
+        if (this.numChannelsGPU == 3 && !this.useByteInsteadFloat) {
             this.numChannelsGPU = 4; // ... hmm, also no three channels for float
         }
 
@@ -346,7 +322,7 @@ export class RemoteDVR {
             }
         }
 
-        if (this.useByte) {
+        if (this.useByteInsteadFloat) {
             dataArray = new Uint8Array(numTotal);
         } else {
             dataArray = new Float32Array(numTotal);
@@ -361,7 +337,7 @@ export class RemoteDVR {
             console.log('Hence, use a grid of ', this.sampler2DGridX, this.sampler2DGridY);
         }
 
-        if (this.useByte) {
+        if (this.useByteInsteadFloat) {
             this.texture.type = THREE.UnsignedByteType;
         } else {
             this.texture.type = THREE.FloatType;
@@ -382,12 +358,12 @@ export class RemoteDVR {
         this.texture.unpackAlignment = 1;
 
         // Colormap textures. Any number could be added (however, also the GUI must be updated then).
-        console.log("THIS", this)
+        console.log('THIS', this);
         this.cmtextures = {
-            viridis: (new (THREE.TextureLoader as any)()).load('src/includes/examples/textures/cm_viridis.png'),
-            gray: (new (THREE.TextureLoader as any)()).load('src/includes/examples/textures/cm_gray.png'),
-            gray_rev: (new (THREE.TextureLoader as any)()).load('src/includes/examples/textures/cm_gray_rev.png'),
-            hot_iron: (new (THREE.TextureLoader as any)()).load('src/includes/examples/textures/cm_hot_iron.png'),
+            viridis: new (THREE.TextureLoader as any)().load('src/includes/examples/textures/cm_viridis.png'),
+            gray: new (THREE.TextureLoader as any)().load('src/includes/examples/textures/cm_gray.png'),
+            gray_rev: new (THREE.TextureLoader as any)().load('src/includes/examples/textures/cm_gray_rev.png'),
+            hot_iron: new (THREE.TextureLoader as any)().load('src/includes/examples/textures/cm_hot_iron.png'),
         };
 
         // Material and uniforms
@@ -464,7 +440,7 @@ export class RemoteDVR {
      * other functions. I am not sure if JavaScript offers a better alternative for
      * this approach.
      */
-    handleTextureData(data: Iterable<number>, parameters: { index?: any; channel?: any; images?: any; setLoadingStatus?: any; smallestOffset?: any; worldScale?: any; worldDimensions?: any; downscale?: any; useSampler3D?: any; sampler2DGridX?: any; sampler2DGridY?: any; useByte?: any; moveTo2DSamplerPosition?: any; texture?: any; numChannelsGPU?: any; loadingFinished?: any; renderCall?: any }) {
+    handleTextureData(data: Iterable<number>, parameters: TextureCreationContext) {
         console.log('Parameters', parameters);
         console.log('data', data);
         // Get information/links from "this" (the context)
@@ -527,7 +503,7 @@ export class RemoteDVR {
 
                     // Reading the texture is easy
                     val = array[x + y * numXOrig + z * numXYOrig] / maxVal;
-                    if (parameters.useByte) {
+                    if (parameters.useByteInsteadFloat) {
                         // TODO normalization?
                     }
                     val = Math.floor(val * 255);
@@ -615,7 +591,9 @@ export class RemoteDVR {
                 // Since the callback allows only one parameter, we define a new
                 // context for the callback that contains further information
                 // TODO: Parameter as class
-                let parameters: { [key: string]: any } = {};
+                let parameters = new TextureCreationContext();
+                parameters.useByteInsteadFloat = this.useByteInsteadFloat;
+                parameters.useSampler3D = this.useSampler3D;
                 parameters.images = this.images;
                 parameters.index = i;
                 parameters.texture = this.texture;

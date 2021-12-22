@@ -195,7 +195,7 @@
             config.configUrl = url.searchParams.get('configUrl');
             config.dataUrl = url.searchParams.get('dataUrl');
             config.samplingRate = parseFloat(url.searchParams.get('samplingRate'));
-            config.useByte = url.searchParams.get('useByte') == '1' ? true : false;
+            config.useByteInsteadFloat = url.searchParams.get('useByte') == '1' ? true : false;
             config.downscale = parseInt(url.searchParams.get('downscale'));
             config.showFps = url.searchParams.get('fps') !== null;
             config.refreshRate = 3000;
@@ -211,7 +211,7 @@
 
             if (config.configUrl === null) alert('Please provide the URL of a configuration file!');
             if (config.dataUrl === null) alert("Please provide the URL of the data server's root location!");
-            if (config.useByte === null) config.useByte = true;
+            if (config.useByteInsteadFloat === null) config.useByteInsteadFloat = true;
             if (isNaN(config.downscale) || config.downscale === null) config.downscale = 1;
             if (isNaN(config.samplingRate) || config.samplingRate === null) config.samplingRate = 1;
             

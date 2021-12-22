@@ -4,7 +4,7 @@ export class RemoteDVRConfig {
     configUrl : string;
     dataUrl : string;
     samplingRate = 1;
-    useByte = true;
+    useByteInsteadFloat = true;
     downscale = 1;
     showFps = false;
     refreshRate = 3000;
