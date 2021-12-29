@@ -30,6 +30,7 @@ export class RemoteDVR {
     loadingFinishedCallback: () => void;
     showRotationCamSliderCallback: () => void;
     showIsoSliderCallback: () => void;
+    showSliceSliderCallback: () => void;
     hideSliceAndIsoSliderCallback: () => void;
     setSliceSliderRange: (range: number) => void;
 
@@ -97,6 +98,7 @@ export class RemoteDVR {
         this.loadingFinishedCallback = config.loadingFinishedCallback;
         this.showRotationCamSliderCallback = config.showRotationCamSliderCallback;
         this.showIsoSliderCallback = config.showIsoSliderCallback;
+        this.showSliceSliderCallback = config.showSliceSliderCallback;
         this.hideSliceAndIsoSliderCallback = config.hideSliceAndIsoSliderCallback;
         this.setSliceSliderRange = config.setSliceSliderRange;
         this.cameraDist = config.cameraDist;
@@ -920,7 +922,7 @@ export class RemoteDVR {
      */
     enableSlice(type: string) {
         this.hideSliceAndIsoSliderCallback();
-        this.showIsoSliderCallback();
+        this.showSliceSliderCallback();
         this.showRotationCamSliderCallback();
 
         // Disable rotation and pan

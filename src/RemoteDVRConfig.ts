@@ -17,6 +17,7 @@ export class RemoteDVRConfig {
     loadingFinishedCallback: () => void;
     showRotationCamSliderCallback: () => void;
     showIsoSliderCallback: () => void;
+    showSliceSliderCallback: () => void;
     hideSliceAndIsoSliderCallback: () => void;
     setSliceSliderRange: (range: number) => void;
     cameraDist = 2500; // Camera must be far away from the data to avoid clipping (=voxel space)

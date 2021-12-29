@@ -23,49 +23,42 @@
                 <div class="container">
                     <div class="row">
                         <div class="col-2">
-                            Screenshots:
+                            Screenshots
                         </div>
                         <div class="col-4">
-                            <button class="btn-sm btn-primary  grayscale" onclick="javascript:takeScreenshot()">Click!</button>
-                            <button class="btn-sm btn-primary none  grayscale" id="screenShotAlbumOpener" onclick="javascript:openScreenshotAlbum()">Album</button>
-                            <button class="btn-sm btn-primary none grayscale" id="screenShotDownloader" onclick="javascript:downloadScreenshots()">Download</button>
+                            <button class="btn-primary  grayscale" onclick="javascript:takeScreenshot()">Click!</button>
+                            <button class="btn-primary none  grayscale" id="screenShotAlbumOpener" onclick="javascript:openScreenshotAlbum()">Album</button>
+                            <button class="btn-primary none grayscale" id="screenShotDownloader" onclick="javascript:downloadScreenshots()">Download</button>
                         </div>
                         <div class="col-sm6">
                             <label> <input type="checkbox" onclick="javascript:setAutoLoad(this.checked)" /> Automatically load new images </label><br />
                             <label> <input type="checkbox" onclick="javascript:setAutoScreenshot(this.checked)" checked="" /> Take screenshots before loading new image </label>
                         </div>
                     </div>
-                    <div class="row hidden" id="sliceSliderRow">
-                        <div class="col-2" id="multiPurposeSliderLabel"><span id="sliceSliderName">&nbsp;</span>:</div>
-                        <div class="col-sm">
-                            <input type="number" min="0" max="1000" value="0.0" step="0.1" class="form-control-sm" name="sliceSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
-                            <input type="range" min="0" max="1000" value="0.0" step="0.1" class="slider" name="sliceSlider" oninput="javascript:setSlice(processSliderInput(this));" />
-                        </div>
-                    </div>
                     <div class="row" id="cameraRotationSliderRow">
-                        <div class="col-2">Rotate (y):</div>
-                        <div class="col-sm">
-                            <input type="number" min="0" max="360" value="0.0" step="0.1" class="form-control-sm" name="cameraSliderNumeric" oninput="javascript:processSliderNumericInput(this)" />
+                        <div class="col-2">Rotate (y)</div>
+                        <div class="col-6">
+                            <input type="number" min="0" max="360" value="0.0" step="0.1" class="form-control-sm none" name="cameraSliderNumeric" oninput="javascript:processSliderNumericInput(this)" />
                             <input type="range" min="0" max="360" value="0.0" step="0.1" class="slider" name="cameraSlider" oninput="javascript:setCamera(processSliderInput(this));" />
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-2">
-                            View mode:
+                            View mode
                         </div>
-                        <div class="col-sm ">
+                        <div class="col-6">
                             <div class="btn-group btn-group-toggle grayscale" data-toggle="buttons">
-                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableSlice('x');javascript:activateButton(this);setSliceGuiText('X');" /> X </label>
-                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableSlice('y');javascript:activateButton(this);setSliceGuiText('Y');" /> Y </label>
-                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableSlice('z');javascript:activateButton(this);setSliceGuiText('Z');" /> Z </label>
-                                <label class="btn btn-sm btn-primary active"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableMIP();javascript:activateButton(this)" /> MIP </label>
-                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableIso();javascript:activateButton(this)" /> ISO </label>
-                                <label class="btn btn-sm btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableAverage();javascript:activateButton(this)" /> Average </label>
+                                <label class="btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableSlice('x');javascript:activateButton(this);setSliceGuiText('X');" /> X </label>
+                                <label class="btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableSlice('y');javascript:activateButton(this);setSliceGuiText('Y');" /> Y </label>
+                                <label class="btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableSlice('z');javascript:activateButton(this);setSliceGuiText('Z');" /> Z </label>
+                                <label class="btn-primary active"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableMIP();javascript:activateButton(this)" /> MIP </label>
+                                <label class="btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableIso();javascript:activateButton(this)" /> ISO </label>
+                                <label class="btn-primary"> <input type="radio" name="viewOptions" autocomplete="off" onclick="javascript:enableAverage();javascript:activateButton(this)" /> Average </label>
                             </div>
                         </div>
-                        <div class="col-md">
+                        <div class="col-3">
                             <label>
-                                Background:
+                                Background
                                 <input type="color" value="#282828" onchange="javascript:setBackgroundColor(this.value)" />
                             </label>
                         </div>
@@ -75,7 +68,7 @@
                             <div class="btn-group btn-group-toggle grayscale" data-toggle="buttons">
                                 <span class="btn-primary" name="channelTab">
                                     <input type="checkbox" autocomplete="off" onclick="javascript:setChannelVisible(this.checked, getMyChannel(this));" checked="" />
-                                    <label class="btn btn-primary">
+                                    <label class="btn-primary">
                                         <input type="radio" autocomplete="off" onclick="javascript:showChannelGui(this.parentNode);" />
                                         <span name="channelTabLabel">&nbsp;</span>
                                     </label>
@@ -98,55 +91,59 @@
                                     &nbsp;
                                 </div>
                             </div>
+                            <div class="spacer">&nbsp;</div>
+
                             <div class="row  additionalTopSpacing">
                                 <div class="col-2">
-                                    Color mode:
+                                    Color mode
                                 </div>
                                 <div class="col-6">
                                     <div class="btn-group btn-group-toggle  grayscale" data-toggle="buttons">
-                                        <label class="btn btn-sm btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'gray')" />Gray </label>
-                                        <label class="btn btn-sm btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'gray_rev')" />Gray^-1 </label>
-                                        <label class="btn btn-sm btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'viridis')" />Viridis </label>
-                                        <label class="btn btn-sm btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'hot_iron')" />Hot </label>
-                                        <label class="btn btn-sm btn-primary active"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleCustomColor(this)" />Custom </label>
+                                        <label class="btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'gray')" />Gray </label>
+                                        <label class="btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'gray_rev')" />Gray^-1 </label>
+                                        <label class="btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'viridis')" />Viridis </label>
+                                        <label class="btn-primary"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleNonCustomColor(this, 'hot_iron')" />Hot </label>
+                                        <label class="btn-primary active"> <input type="radio" name="colorOptions" autocomplete="off" onclick="javascript:handleCustomColor(this)" />Custom </label>
                                     </div>
                                 </div>
                                 <div class="col-md" name="customColorButton">
                                     <label>
-                                        Custom:
+                                        Custom
                                         <input type="color" value="#ffffff" onchange="javascript:setCustomColor(this.value, getMyChannel(this))" />
                                     </label>
                                 </div>
                             </div>
                             <div class="row hidden" name="isoSurfaceSliderRow">
                                 <div class="col-2">
-                                    Iso value:
+                                    Iso value
                                 </div>
-                                <div class="col-sm">
-                                    <input type="number" min="0" max="1" value="1" step="0.001" class="form-control-sm" name="isoSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
+                                <div class="col-6">
+                                    <input type="number" min="0" max="1" value="1" step="0.001" class="form-control-sm none" name="isoSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
                                     <input type="range" min="0" max="1" value="1" step="0.001" class="slider" name="isoSlider" oninput="javascript:setIsoValue(processSliderInput(this, false), getMyChannel(this))" />
                                 </div>
                             </div>
+                            <div class="row hidden" id="sliceSliderRow">
+                                <div class="col-2" id="multiPurposeSliderLabel"><span id="sliceSliderName">&nbsp;</span>:</div>
+                                <div class="col-6">
+                                    <input type="number" min="0" max="1000" value="0.0" step="0.1" class="form-control-sm none" name="sliceSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
+                                    <input type="range" min="0" max="1000" value="0.0" step="0.1" class="slider" name="sliceSlider" oninput="javascript:setSlice(processSliderInput(this));" />
+                                </div>
+                            </div>
+                            <div class="spacer">&nbsp;</div>
                             <div class="row">
                                 <div class="col-2">
-                                    Contrast:
+                                    Contrast
                                 </div>
-                                <div class="col-10">
-                                    <div class="row">
-                                        <div class="col-12">
-                                            <input type="number" min="0" max="1" value="0.0" step="0.001" class="form-control-sm" name="minSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
-                                            <input type="range" min="0" max="1" value="0.0" step="0.001" class="slider" name="minSlider" oninput="javascript:setColorMinimum(processSliderInput(this, false), getMyChannel(this))" />
-                                        </div>
-                                        <div class="col-12">
-                                            <input type="number" min="0" max="1" value="1.0" step="0.001" class="form-control-sm" name="maxSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
+                                        <div class="col-6">
+                                            <input type="number" min="0" max="1" value="0.0" step="0.001" class="form-control-sm none" name="minSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
+                                            <input type="range" min="0" max="1" value="0.0" step="0.001" class="slider" name="minSlider" oninput="javascript:setColorMinimum(processSliderInput(this, false), getMyChannel(this))" /><br>
+                                            <input type="number" min="0" max="1" value="1.0" step="0.001" class="form-control-sm none" name="maxSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
                                             <input type="range" min="0" max="1" value="1.0" step="0.001" class="slider" name="maxSlider" oninput="javascript:setColorMaximum(processSliderInput(this, false), getMyChannel(this))" />
                                         </div>
-                                        <div class="col-12">
-                                            <input type="number" min="0" max="3" value="1.0" step="0.001" class="form-control-sm" name="gammaSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
-                                            <input type="range" min="0" max="3" value="1.0" step="0.001" class="slider" name="gammaSlider" oninput="javascript:setGamma(processSliderInput(this, false), getMyChannel(this))" />
+                                        <div class="col-1">
+                                            <input type="number" min="0" max="3" value="1.0" step="0.001" class="form-control-sm none" name="gammaSliderNumeric" onchange="javascript:processSliderNumericInput(this, false)" />
+                                            <input type="range" min="0" max="3" value="1.0" step="0.001" class="slider rotated" name="gammaSlider" oninput="javascript:setGamma(processSliderInput(this, false), getMyChannel(this))" />
                                         </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -161,9 +158,9 @@
                 <div id="screenshotAreaCloseButton" class="crossed" onclick="javascript:closeScreenshotAlbum()">&nbsp;</div>
                 <div id="screenShotViewArea"></div>
                 <div id="screenShotNavigationArea">
-                    <input type="number" min="0" max="0" value="0" step="1" class="form-control-sm" name="screenshotSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
+                    <input type="number" min="0" max="0" value="0" step="1" class="form-control-sm none" name="screenshotSliderNumeric" onchange="javascript:processSliderNumericInput(this)" />
                     <input type="range" min="0" max="0" value="0" step="1" class="slider" name="screenshotSlider" oninput="javascript:selectScreenshot(processSliderInput(this))" />
-                    <!--<button class="btn-sm btn-primary grayscale" onclick="javascript:closeScreenshotAlbum()">Close</button>-->
+                    <!--<button class="btn-primary grayscale" onclick="javascript:closeScreenshotAlbum()">Close</button>-->
                 </div>
             </div>
         </div>
@@ -171,7 +168,7 @@
         <!-- The following part pops up once there is new data available -->
         <div id="reloadButtonRow">
             A new image is available! <br />
-            <button class="btn-sm btn-primary grayscale" onclick="javascript:reloadTexture()">Reload image</button>
+            <button class="btn-primary grayscale" onclick="javascript:reloadTexture()">Reload image</button>
         </div>
 
         <!-- Show/hide the navigation area -->
@@ -185,9 +182,10 @@
         </div>
 
         <div id="statusBars"></div>
+        <script src="src/includes/nouislider.min.js"></script>
         <script src="./dist/main.js"></script>
         <script>
-            // Prepare: get parameters from URL
+             // Prepare: get parameters from URL
             let url = new URL(window.location.href);
             let config = {};
             config.canvasHolder = document.getElementById('mainCanvasHolder');
@@ -208,6 +206,7 @@
             config.loadingFinishedCallback = loadingFinished;
             config.showRotationCamSliderCallback = showRotationCamSlider;
             config.showIsoSliderCallback = showIsoSlider;
+            config.showSliceSliderCallback = showSliceSlider;
             config.hideSliceAndIsoSliderCallback = hideSliceAndIsoSlider;
             config.setSliceSliderRange = setSliceSliderRange;
 
@@ -381,6 +380,7 @@
          * @param {int} value The number that should be set as maximum
          */
         function setSliceSliderRange(value) {
+            console.log("New range", value)
             document.getElementsByName('sliceSlider')[0].max = value;
             document.getElementsByName('sliceSlider')[0].value = Math.min(value, document.getElementsByName('sliceSlider')[0].value);
             document.getElementsByName('sliceSliderNumeric')[0].max = value;

@@ -51284,6 +51284,7 @@ var RemoteDVR = /** @class */ (function () {
         this.loadingFinishedCallback = config.loadingFinishedCallback;
         this.showRotationCamSliderCallback = config.showRotationCamSliderCallback;
         this.showIsoSliderCallback = config.showIsoSliderCallback;
+        this.showSliceSliderCallback = config.showSliceSliderCallback;
         this.hideSliceAndIsoSliderCallback = config.hideSliceAndIsoSliderCallback;
         this.setSliceSliderRange = config.setSliceSliderRange;
         this.cameraDist = config.cameraDist;
@@ -52039,7 +52040,7 @@ var RemoteDVR = /** @class */ (function () {
      */
     RemoteDVR.prototype.enableSlice = function (type) {
         this.hideSliceAndIsoSliderCallback();
-        this.showIsoSliderCallback();
+        this.showSliceSliderCallback();
         this.showRotationCamSliderCallback();
         // Disable rotation and pan
         this.controls.enableRotate = false;
