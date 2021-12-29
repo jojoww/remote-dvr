@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#000000" />
+        <meta name="description" content="Web site created using create-react-app" />
+        <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+        <!--
+      manifest.json provides metadata used when your web app is installed on a
+      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
+    -->
+        <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+        <!--
+      Notice the use of %PUBLIC_URL% in the tags above.
+      It will be replaced with the URL of the `public` folder during the build.
+      Only files inside the `public` folder can be referenced from the HTML.
+
+      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
+      work correctly both with client-side routing and a non-root public URL.
+      Learn how to configure a non-root public URL by running `npm run build`.
+    -->
+        <style>
+            #inset {
+                width: 10vmin;
+                height: 10vmin;
+                background-color: transparent;
+                /* or transparent; will show through only if renderer alpha: true */
+                border: 0px solid rgb(22, 105, 230);
+                /* or none; */
+                margin: 0px;
+                padding: 0px;
+                position: absolute;
+                left: 0px;
+                bottom: 0px;
+                z-index: 100;
+            }
+
+            #insetLabel {
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 2vmin;
+                background-color: transparent;
+                /* or transparent; will show through only if renderer alpha: true */
+                border: 0px solid rgb(22, 105, 230);
+                /* or none; */
+                margin: 0px;
+                padding: 0px;
+                position: absolute;
+                left: 3vmin;
+                bottom: 1vmin;
+                z-index: 100;
+            }
+
+            #insetLabelRed {
+                color: #ff0022;
+            }
+
+            #insetLabelGreen {
+                color: #00c83c;
+            }
+
+            #insetLabelBlue {
+                color: #0073f9;
+            }
+
+            #mainCanvasHolder {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                background-color: #cccccc;
+            }
+
+            .canvasArea {
+                background: bisque;
+                display: inline-block;
+                position: relative;
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+
+        <title>React App</title>
+    </head>
+    <body>
+        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <div id="root"></div>
+        <!--
+      This HTML file is a template.
+      If you open it directly in the browser, you will see an empty page.
+
+      You can add webfonts, meta tags, or analytics to this file.
+      The build step will place the bundled scripts into the <body> tag.
+
+      To begin the development, run `npm start` or `yarn start`.
+      To create a production bundle, use `npm run build` or `yarn build`.
+    -->
+        <div class="canvasArea">
+            <div id="mainCanvasHolder"></div>
+        </div>
+        <div id="inset"></div>
+        <div id="insetLabel">
+            <span id="insetLabelRed">X</span>, <span id="insetLabelGreen">Y</span>,
+            <span id="insetLabelBlue">Z</span>
+        </div>
+        <script src="main.js"></script>
+        <script>
+            // prepare function dummies
+            window.showReloadButtonCallback = () => {alert('showReloadButtonCallback')}
+            window.hideReloadButtonCallback = () => {alert('hideReloadButtonCallback')}
+            window.addChannelsToGuiCallback = () => {alert('addChannelsToGuiCallback')}
+            window.addLoadingBarsToGuiCallback = () => {alert('addLoadingBarsToGuiCallback')}
+            window.setLoadingStatusCallback = () => {alert('setLoadingStatusCallback')}
+            window.addScreenshotCallback = () => {alert('addScreenshotCallback')}
+            window.loadingFinishedCallback = () => {alert('loadingFinishedCallback')}
+            window.showRotationCamSliderCallback = () => {alert('showRotationCamSliderCallback')}
+            window.showIsoSliderCallback = () => {alert('showIsoSliderCallback')}
+            window.hideSliceAndIsoSliderCallback = () => {alert('hideSliceAndIsoSliderCallback')}
+            window.setSliceSliderRange = () => {alert('setSliceSliderRange')}
+        </script>
+    </body>
+</html>

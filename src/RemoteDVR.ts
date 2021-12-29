@@ -648,7 +648,7 @@ export class RemoteDVR {
         console.log('Resize');
         let canvasList = ['mainCanvasHolder'];
         for (let i = 0; i < canvasList.length; i++) {
-            let canvas = document.getElementById(canvasList[i]);
+            let canvas = document.getElementById(canvasList[i])!;
             this.renderer.setSize(canvas.clientWidth, canvas.clientHeight);
             let aspect = canvas.clientWidth / canvas.clientHeight;
             let frustumHeight = this.camera.top - this.camera.bottom;
